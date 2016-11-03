@@ -24,17 +24,13 @@ type config struct {
 }
 
 func (r *registry) Bind(i sync.Locker) error {
-	rt := reflect.TypeOf(i)
-	if rt.Kind() != reflect.Ptr {
-		panic(fmt.Sprintf("'%s' should be a reference", rt.Name()))
-	}
 	items, err := bind(i)
 	if err != nil {
 		return err
 	}
 	r.configs = append(r.configs, config{
 		mutex: i,
-		ident: fmt.Sprintf("%s.%d", rt.Elem().Name(), len(r.configs)+1),
+		ident: fmt.Sprintf("%s.%d", reflect.TypeOf(i).Elem().Name(), len(r.configs)+1),
 		items: items,
 	})
 	r.bindChan <- struct{}{}
@@ -63,16 +59,46 @@ func (i *item) set(rawValue string) error {
 		if defaultValue, err = strconv.ParseInt(rawValue, 10, 0); err == nil {
 			defaultValue = int(defaultValue.(int64))
 		}
+	case reflect.Int8:
+		if defaultValue, err = strconv.ParseInt(rawValue, 10, 32); err == nil {
+			defaultValue = int8(defaultValue.(int64))
+		}
+	case reflect.Int16:
+		if defaultValue, err = strconv.ParseInt(rawValue, 10, 32); err == nil {
+			defaultValue = int16(defaultValue.(int64))
+		}
 	case reflect.Int32:
-		defaultValue, err = strconv.ParseInt(rawValue, 10, 32)
+		if defaultValue, err = strconv.ParseInt(rawValue, 10, 32); err == nil {
+			defaultValue = int32(defaultValue.(int64))
+		}
 	case reflect.Int64:
 		defaultValue, err = strconv.ParseInt(rawValue, 10, 64)
+	case reflect.Uint:
+		if defaultValue, err = strconv.ParseUint(rawValue, 10, 0); err == nil {
+			defaultValue = uint(defaultValue.(uint64))
+		}
+	case reflect.Uint8:
+		if defaultValue, err = strconv.ParseUint(rawValue, 10, 32); err == nil {
+			defaultValue = uint8(defaultValue.(uint64))
+		}
+	case reflect.Uint16:
+		if defaultValue, err = strconv.ParseUint(rawValue, 10, 32); err == nil {
+			defaultValue = uint16(defaultValue.(uint64))
+		}
+	case reflect.Uint32:
+		if defaultValue, err = strconv.ParseUint(rawValue, 10, 32); err == nil {
+			defaultValue = uint32(defaultValue.(uint64))
+		}
+	case reflect.Uint64:
+		defaultValue, err = strconv.ParseUint(rawValue, 10, 64)
 	case reflect.Float32:
 		if defaultValue, err = strconv.ParseFloat(rawValue, 10); err == nil {
 			defaultValue = float32(defaultValue.(float64))
 		}
 	case reflect.Float64:
 		defaultValue, err = strconv.ParseFloat(rawValue, 10)
+	case reflect.Bool:
+		defaultValue, err = strconv.ParseBool(rawValue)
 	case reflect.Slice:
 		switch i.reference.Type() {
 		case typeStringSlice:
