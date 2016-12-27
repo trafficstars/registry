@@ -171,7 +171,9 @@ func serverWeight(s *registry.Service) int {
 	for _, tag := range s.Tags {
 		if strings.HasPrefix(tag, "CPU_USAGE=") {
 			if v, _ := strconv.ParseFloat(strings.TrimPrefix(tag, "CPU_USAGE="), 64); v != 0 {
-				weight = weight / int(math.Ceil(v/4.0))
+				if usage := int(math.Ceil(v / 4.0)); usage != 0 {
+					weight = weight / int(math.Ceil(v/4.0))
+				}
 			}
 		}
 	}
