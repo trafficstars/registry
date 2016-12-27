@@ -32,8 +32,8 @@ func main() {
 		tick := time.Tick(2 * time.Second)
 		for {
 			<-tick
-			if serivices, err := discovery.Lookup(&registry.Filter{Service: "example_service"}); err == nil {
-				for _, service := range serivices {
+			if services, err := discovery.Lookup(&registry.Filter{Service: "example_service"}); err == nil {
+				for _, service := range services {
 					fmt.Printf("%#v\n", service)
 				}
 			}

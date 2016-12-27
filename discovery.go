@@ -31,7 +31,7 @@ func (d *discovery) Register(options ServiceOptions) error {
 		if err != nil {
 			return err
 		}
-		v, err := strconv.ParseInt(p, 10, 16)
+		v, err := strconv.ParseUint(p, 10, 32)
 		if err != nil {
 			return err
 		}
@@ -39,11 +39,11 @@ func (d *discovery) Register(options ServiceOptions) error {
 		port = int(v)
 	}
 	return d.agent.ServiceRegister(&api.AgentServiceRegistration{
-		ID:                options.ID + "::" + options.Name + "::" + d.datacenter,
+		ID:                options.ID,
 		Name:              options.Name,
 		Address:           host,
 		Port:              port,
-		Tags:              options.Tags,
+		Tags:              append(options.Tags, "DC="+d.datacenter),
 		EnableTagOverride: true,
 		Check: &api.AgentServiceCheck{
 			Interval: options.Check.Interval,
@@ -75,7 +75,6 @@ func (d *discovery) Lookup(filter *Filter) ([]Service, error) {
 			statuses[check.ServiceID] = status
 		}
 	}
-
 	var (
 		result        = make([]Service, 0, len(statuses))
 		services, err = d.agent.Services()
@@ -92,11 +91,10 @@ func (d *discovery) Lookup(filter *Filter) ([]Service, error) {
 			status = s
 		}
 		var (
-			id, datacenter = splitID(service.ID)
-			srv            = Service{
-				ID:         id,
+			srv = Service{
+				ID:         service.ID,
 				Name:       service.Service,
-				Datacenter: datacenter,
+				Datacenter: dc(service.Tags),
 				Address:    service.Address,
 				Port:       service.Port,
 				Tags:       service.Tags,
@@ -110,9 +108,11 @@ func (d *discovery) Lookup(filter *Filter) ([]Service, error) {
 	return result, nil
 }
 
-func splitID(id string) (string, string) {
-	if parts := strings.Split(id, "::"); len(parts) == 3 {
-		return parts[0], parts[2]
+func dc(tags []string) string {
+	for _, tag := range tags {
+		if strings.HasPrefix(tag, "DC=") {
+			return strings.TrimPrefix(tag, "DC=")
+		}
 	}
-	return id, ""
+	return ""
 }
