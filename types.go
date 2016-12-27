@@ -1,8 +1,6 @@
 package registry
 
-import (
-	"sync"
-)
+import "sync"
 
 const (
 	SERVICE_STATUS_UNDEFINED int8 = iota
@@ -44,6 +42,9 @@ func (s *Service) test(filter *Filter) bool {
 	if filter == nil {
 		return true
 	}
+	if len(filter.ID) != 0 && filter.ID != s.ID {
+		return false
+	}
 	if len(filter.Datacenter) != 0 && filter.Datacenter != s.Datacenter {
 		return false
 	}
@@ -64,6 +65,7 @@ func (s *Service) test(filter *Filter) bool {
 }
 
 type Filter struct {
+	ID         string
 	Tags       []string
 	Service    string
 	Datacenter string
