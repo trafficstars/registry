@@ -3,7 +3,7 @@ package registry
 import "sync"
 
 const (
-	SERVICE_STATUS_UNDEFINED int8 = iota
+	SERVICE_STATUS_UNDEFINED int8 = iota + 1
 	SERVICE_STATUS_PASSING
 	SERVICE_STATUS_WARNING
 	SERVICE_STATUS_CRITICAL
@@ -45,6 +45,9 @@ func (s *Service) test(filter *Filter) bool {
 	if len(filter.ID) != 0 && filter.ID != s.ID {
 		return false
 	}
+	if filter.Status > 0 && filter.Status != s.Status {
+		return false
+	}
 	if len(filter.Datacenter) != 0 && filter.Datacenter != s.Datacenter {
 		return false
 	}
@@ -66,6 +69,7 @@ func (s *Service) test(filter *Filter) bool {
 
 type Filter struct {
 	ID         string
+	Status     int8
 	Tags       []string
 	Service    string
 	Datacenter string
