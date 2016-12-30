@@ -141,13 +141,13 @@ func bind(i interface{}) ([]item, error) {
 		case reflect.Struct:
 			i, err := bind(value.Addr().Interface())
 			if err != nil {
-				return nil, err
+				return nil, fmt.Errorf("'%s': %v", field.Name, err)
 			}
 			items = append(items, i...)
 		default:
 			item, err := makeItem(field, value)
 			if err != nil {
-				return nil, err
+				return nil, fmt.Errorf("'%s': %v", field.Name, err)
 			}
 			if len(item.key) != 0 {
 				items = append(items, item)
