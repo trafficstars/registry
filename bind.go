@@ -60,11 +60,11 @@ func (i *item) set(rawValue string) error {
 			defaultValue = int(defaultValue.(int64))
 		}
 	case reflect.Int8:
-		if defaultValue, err = strconv.ParseInt(rawValue, 10, 32); err == nil {
+		if defaultValue, err = strconv.ParseInt(rawValue, 10, 8); err == nil {
 			defaultValue = int8(defaultValue.(int64))
 		}
 	case reflect.Int16:
-		if defaultValue, err = strconv.ParseInt(rawValue, 10, 32); err == nil {
+		if defaultValue, err = strconv.ParseInt(rawValue, 10, 16); err == nil {
 			defaultValue = int16(defaultValue.(int64))
 		}
 	case reflect.Int32:
@@ -78,11 +78,11 @@ func (i *item) set(rawValue string) error {
 			defaultValue = uint(defaultValue.(uint64))
 		}
 	case reflect.Uint8:
-		if defaultValue, err = strconv.ParseUint(rawValue, 10, 32); err == nil {
+		if defaultValue, err = strconv.ParseUint(rawValue, 10, 8); err == nil {
 			defaultValue = uint8(defaultValue.(uint64))
 		}
 	case reflect.Uint16:
-		if defaultValue, err = strconv.ParseUint(rawValue, 10, 32); err == nil {
+		if defaultValue, err = strconv.ParseUint(rawValue, 10, 16); err == nil {
 			defaultValue = uint16(defaultValue.(uint64))
 		}
 	case reflect.Uint32:
