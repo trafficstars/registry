@@ -9,6 +9,7 @@ import (
 	"os"
 	"runtime"
 	"strings"
+	"sync"
 	"time"
 
 	log "github.com/Sirupsen/logrus"
@@ -57,23 +58,30 @@ type Stats struct {
 }
 
 type supervisor struct {
-	info      types.Info
-	docker    *client.Client
-	discovery registry.Discovery
+	info       types.Info
+	mutex      sync.RWMutex
+	docker     *client.Client
+	discovery  registry.Discovery
+	inProgress bool
 }
 
 func (s *supervisor) refresh() {
+	if s.isInProgress() {
+		return
+	}
 	containers, err := s.docker.ContainerList(context.Background(), types.ContainerListOptions{})
 	if err != nil {
 		log.Errorf("Refresh services (container list): %v", err)
 		return
 	}
+	s.setInProgress(true)
 	for _, container := range containers {
-		log.Infof("Refresh container: %s", container.ID[:12])
+		log.Debugf("Refresh container: %s", container.ID[:12])
 		if err := s.serviceRegister(container.ID); err != nil {
-			log.Errorf("Refresh services: %v", err)
+			log.Errorf("Register service [%s]: %v", container.ID[:12], err)
 		}
 	}
+	s.setInProgress(false)
 }
 
 func (s *supervisor) containerStats(containerID string) (Stats, error) {
@@ -109,13 +117,8 @@ func (s *supervisor) serviceRegister(containerID string) error {
 	}
 
 	if container.State.Status != "running" {
-		log.Debugf("Container [%s] is not running", container.ID[:12])
+		log.Debugf("Container [%s] is not running", containerID[:12])
 		return nil
-	}
-
-	stats, err := s.containerStats(containerID)
-	if err != nil {
-		return err
 	}
 
 	var (
@@ -135,8 +138,13 @@ func (s *supervisor) serviceRegister(containerID string) error {
 	}
 
 	if len(name) == 0 {
-		log.Debugf("Container [%s] is not the service", container.ID[:12])
+		log.Debugf("Container [%s] is not the service", containerID[:12])
 		return nil
+	}
+
+	stats, err := s.containerStats(containerID)
+	if err != nil {
+		return err
 	}
 
 	for _, mapping := range container.NetworkSettings.Ports {
@@ -198,11 +206,24 @@ func (s *supervisor) api() {
 	log.Fatal(http.ListenAndServe(":8000", nil))
 }
 
+func (s *supervisor) setInProgress(status bool) {
+	s.mutex.Lock()
+	s.inProgress = status
+	s.mutex.Unlock()
+}
+
+func (s *supervisor) isInProgress() bool {
+	s.mutex.RLock()
+	defer s.mutex.RUnlock()
+	return s.inProgress
+}
+
 func (s *supervisor) run() {
 	var (
 		tick           = time.Tick(10 * time.Second)
 		events, errors = s.docker.Events(context.Background(), types.EventsOptions{})
 	)
+	log.Info("Run supervisor")
 	s.refresh()
 	go s.api()
 	for {
@@ -210,9 +231,14 @@ func (s *supervisor) run() {
 		case event := <-events:
 			switch event.Action {
 			case "start", "unpause":
-				s.refresh()
+				log.Debugf("Register new container: %s", event.Actor.ID[:12])
+				go func() {
+					if err := s.serviceRegister(event.Actor.ID); err != nil {
+						log.Errorf("Register service [%s]: %v", event.Actor.ID[:12], err)
+					}
+				}()
 			case "die", "kill", "stop", "pause", "oom":
-				log.Infof("Deregister service [%s]: %s (%v)", event.Action, event.Actor.ID[:12], event.Actor.Attributes)
+				log.Debugf("Deregister service [%s]: %s (%v)", event.Action, event.Actor.ID[:12], event.Actor.Attributes)
 				if err := s.discovery.Deregister(event.Actor.ID); err != nil {
 					log.Errorf("Deregister service [%s]: %v", event.Action, err)
 				}
@@ -220,7 +246,7 @@ func (s *supervisor) run() {
 		case error := <-errors:
 			log.Errorf("Event: %v", error)
 		case <-tick:
-			s.refresh()
+			go s.refresh()
 		}
 	}
 }

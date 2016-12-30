@@ -17,6 +17,7 @@ func main() {
 			TimestampFormat: "2006-01-02 15:04:05 MST",
 		}
 	}
+	log.SetLevel(log.InfoLevel)
 	if len(os.Getenv("DEBUG")) != 0 {
 		log.SetLevel(log.DebugLevel)
 	}
