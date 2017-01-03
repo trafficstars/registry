@@ -69,12 +69,12 @@ func (s *supervisor) refresh() {
 	if s.isInProgress() {
 		return
 	}
+	s.setInProgress(true)
 	containers, err := s.docker.ContainerList(context.Background(), types.ContainerListOptions{})
 	if err != nil {
 		log.Errorf("Refresh services (container list): %v", err)
 		return
 	}
-	s.setInProgress(true)
 	for _, container := range containers {
 		log.Debugf("Refresh container: %s", container.ID[:12])
 		if err := s.serviceRegister(container.ID); err != nil {
@@ -220,7 +220,7 @@ func (s *supervisor) isInProgress() bool {
 
 func (s *supervisor) run() {
 	var (
-		tick           = time.Tick(10 * time.Second)
+		tick           = time.Tick(30 * time.Second)
 		events, errors = s.docker.Events(context.Background(), types.EventsOptions{})
 	)
 	log.Info("Run supervisor")

@@ -4,6 +4,8 @@ import (
 	log "github.com/Sirupsen/logrus"
 	"github.com/trafficstars/registry/supervisor"
 
+	"net/http"
+	_ "net/http/pprof"
 	"os"
 )
 
@@ -20,6 +22,9 @@ func main() {
 	log.SetLevel(log.InfoLevel)
 	if len(os.Getenv("DEBUG")) != 0 {
 		log.SetLevel(log.DebugLevel)
+		go func() {
+			log.Println(http.ListenAndServe(":6060", nil))
+		}()
 	}
 	log.SetFormatter(formatter)
 	supervisor.Run()
