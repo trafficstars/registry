@@ -21,7 +21,7 @@ func (s *service) ServeHTTP(rw http.ResponseWriter, req *http.Request) {
 }
 
 func main() {
-	r, err := registry.New("http://127.0.0.1:8500?dc=adv&refresh_interval=5", os.Args)
+	r, err := registry.New("http://192.168.111.1:8500?dc=adv&refresh_interval=5", os.Args)
 	if err != nil {
 		panic(err)
 	}
