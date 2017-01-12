@@ -13,11 +13,14 @@ type Transport struct {
 func (t *Transport) RoundTrip(req *http.Request) (*http.Response, error) {
 	var (
 		err      error
+		body     []byte
 		backend  *backend
 		response *http.Response
 		service  = req.URL.Host
 	)
-	body, _ := ioutil.ReadAll(req.Body)
+	if req.Body != nil {
+		body, _ = ioutil.ReadAll(req.Body)
+	}
 	for i := 0; i <= _balancer.countOfBackends(service)*2; i++ {
 		if backend, err = _balancer.next(service); err == nil {
 			req.URL.Host = backend.address
