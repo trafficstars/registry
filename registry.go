@@ -40,6 +40,7 @@ func New(dsn string, osArgs []string) (Registry, error) {
 		}
 	}
 	if len(dsn) != 0 {
+		registry.refreshInterval = -1
 		go registry.supervisor()
 	}
 	return &registry, nil

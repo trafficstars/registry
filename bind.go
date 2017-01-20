@@ -33,7 +33,9 @@ func (r *registry) Bind(i sync.Locker) error {
 		ident: fmt.Sprintf("%s.%d", reflect.TypeOf(i).Elem().Name(), len(r.configs)+1),
 		items: items,
 	})
-	r.bindChan <- struct{}{}
+	if r.refreshInterval != -1 {
+		r.bindChan <- struct{}{}
+	}
 	return nil
 }
 
