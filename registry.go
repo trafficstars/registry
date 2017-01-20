@@ -39,7 +39,9 @@ func New(dsn string, osArgs []string) (Registry, error) {
 			registry.refreshInterval = time.Duration(v) * time.Second
 		}
 	}
-	go registry.supervisor()
+	if len(dsn) != 0 {
+		go registry.supervisor()
+	}
 	return &registry, nil
 }
 
