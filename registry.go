@@ -62,6 +62,8 @@ func (r *registry) KV() KV {
 func (r *registry) Discovery() Discovery {
 	return &discovery{
 		agent:      r.client.Agent(),
+		health:     r.client.Health(),
+		catalog:    r.client.Catalog(),
 		datacenter: r.datacenter,
 	}
 }
