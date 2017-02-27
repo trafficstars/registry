@@ -93,9 +93,7 @@ func (d *discovery) Lookup(filter *Filter) ([]Service, error) {
 					Status:     SERVICE_STATUS_UNDEFINED,
 				}
 			)
-			if srv.test(filter) {
-				result = append(result, srv)
-			}
+			result = append(result, srv)
 		}
 	}
 	sort.Sort(sortServiceByID(result))
@@ -121,7 +119,13 @@ func (d *discovery) Lookup(filter *Filter) ([]Service, error) {
 			}
 		}
 	}
-	return result, nil
+	services := make([]Service, 0, len(result))
+	for _, srv := range result {
+		if srv.test(filter) {
+			services = append(services, srv)
+		}
+	}
+	return services, nil
 }
 
 func dc(tags []string) string {

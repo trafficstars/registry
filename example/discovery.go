@@ -10,7 +10,7 @@ import (
 )
 
 func main() {
-	r, err := registry.New("http://127.0.0.1:8500?dc=adv&refresh_interval=5", os.Args)
+	r, err := registry.New("http://127.0.0.1:8500?dc=dc1&refresh_interval=5", os.Args)
 	if err != nil {
 		panic(err)
 	}
@@ -32,9 +32,9 @@ func main() {
 		tick := time.Tick(2 * time.Second)
 		for {
 			<-tick
-			if services, err := discovery.Lookup(&registry.Filter{Service: "example_service"}); err == nil {
+			if services, err := discovery.Lookup(&registry.Filter{Service: "example_service", Status: registry.SERVICE_STATUS_PASSING}); err == nil {
 				for _, service := range services {
-					fmt.Printf("%#v\n", service)
+					fmt.Printf("%#v %d\n", service, registry.SERVICE_STATUS_PASSING)
 				}
 			}
 		}

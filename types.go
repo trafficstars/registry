@@ -45,7 +45,7 @@ func (s *Service) test(filter *Filter) bool {
 	if len(filter.ID) != 0 && filter.ID != s.ID {
 		return false
 	}
-	if filter.Status > 0 && filter.Status != s.Status {
+	if filter.Status != 0 && filter.Status != s.Status {
 		return false
 	}
 	if len(filter.Datacenter) != 0 && filter.Datacenter != s.Datacenter {
