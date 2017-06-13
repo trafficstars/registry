@@ -3,6 +3,7 @@ package registry
 import (
 	"github.com/hashicorp/consul/api"
 
+	"fmt"
 	"net"
 	"net/url"
 	"sort"
@@ -68,16 +69,47 @@ func (a sortServiceByID) Len() int           { return len(a) }
 func (a sortServiceByID) Swap(i, j int)      { a[i], a[j] = a[j], a[i] }
 func (a sortServiceByID) Less(i, j int) bool { return a[i].ID < a[j].ID }
 
+// Lookup services by filter
+//
+// If needed to lookup all services around all DCs,
+// set DC filter to "all". It takes all DCs from discovery
+// and polls services every of them
 func (d *discovery) Lookup(filter *Filter) ([]Service, error) {
-	var result []Service
-	list, _, err := d.catalog.Services(nil)
+	if filter.Datacenter != "all" {
+		return d.lookup(filter)
+	}
+
+	dcl, err := d.catalog.Datacenters()
+	if err != nil {
+		return nil, fmt.Errorf("datacenters list: %s", err)
+	}
+
+	var services []Service
+	for _, dc := range dcl {
+		filter.Datacenter = dc
+		s, err := d.lookup(filter)
+		if err != nil {
+			return nil, fmt.Errorf("datacenter %s lookup: %s", dc, err)
+		}
+		services = append(services, s...)
+	}
+
+	return services, nil
+}
+
+func (d *discovery) lookup(filter *Filter) ([]Service, error) {
+	var (
+		result []Service
+		q      = &api.QueryOptions{Datacenter: filter.Datacenter}
+	)
+	list, _, err := d.catalog.Services(q)
 	if err != nil {
 		return nil, err
 	}
 	var names []string
 	for name := range list {
 		names = append(names, name)
-		items, _, err := d.catalog.Service(name, "", nil)
+		items, _, err := d.catalog.Service(name, "", q)
 		if err != nil {
 			return nil, err
 		}
