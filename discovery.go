@@ -141,7 +141,7 @@ func (d *discovery) lookup(filter *Filter) ([]Service, error) {
 		return SERVICE_STATUS_UNDEFINED
 	}
 	for _, name := range names {
-		healthChecks, _, err := d.health.Checks(name, nil)
+		healthChecks, _, err := d.health.Checks(name, q)
 		if err != nil {
 			return nil, err
 		}
