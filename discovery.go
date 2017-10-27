@@ -75,7 +75,11 @@ func (a sortServiceByID) Less(i, j int) bool { return a[i].ID < a[j].ID }
 // set DC filter to "all". It takes all DCs from discovery
 // and polls services every of them
 func (d *discovery) Lookup(filter *Filter) ([]Service, error) {
-	if filter.Datacenter != "all" {
+	if filter == nil {
+		filter = &Filter{}
+	}       	
+
+ 	if filter.Datacenter != "all" {
 		return d.lookup(filter)
 	}
 
