@@ -131,7 +131,17 @@ func (b *balancer) countOfBackends(service string) int {
 	return 0
 }
 
-func (b *balancer) next(service string) (*backend, error) {
+func (b *balancer) nextRoundRobin(service string) (*backend, error) {
+	b.mutex.RLock()
+	defer b.mutex.RUnlock()
+	if upstream, found := b.upstreams[service]; found {
+		upstream.index = (upstream.index + 1) % len(upstream.backends)
+		return upstream.backends[upstream.index], nil
+	}
+	return nil, fmt.Errorf("Service '%s' not found", service)
+}
+
+func (b *balancer) nextWeight(service string) (*backend, error) {
 	b.mutex.RLock()
 	defer b.mutex.RUnlock()
 	if upstream, found := b.upstreams[service]; found {
