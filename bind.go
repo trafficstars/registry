@@ -15,6 +15,7 @@ var errInvalidValue = errors.New("Invalid value")
 var (
 	tags            = []string{"default", "env", "flag", "registry"}
 	typeStringSlice = reflect.TypeOf([]string{})
+	typeIntSlice    = reflect.TypeOf([]int{})
 )
 
 type config struct {
@@ -105,6 +106,18 @@ func (i *item) set(rawValue string) error {
 		switch i.reference.Type() {
 		case typeStringSlice:
 			defaultValue = strings.Split(rawValue, ",")
+		case typeIntSlice:
+			var (
+				arr    []int
+				arrVal int64
+			)
+			for _, v := range strings.Split(rawValue, ",") {
+				if arrVal, err = strconv.ParseInt(v, 10, 64); err != nil {
+					break
+				}
+				arr = append(arr, int(arrVal))
+			}
+			defaultValue = arr
 		}
 	}
 
