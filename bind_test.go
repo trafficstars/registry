@@ -1,6 +1,8 @@
 package registry
 
 import (
+	"time"
+
 	"github.com/stretchr/testify/assert"
 
 	"testing"
@@ -38,6 +40,7 @@ type testConfig struct {
 	unexported struct {
 		String string `default:"unexported"`
 	}
+	Duration time.Duration `default:"4m2s"`
 }
 
 func (*testConfig) Lock()   {}
@@ -78,6 +81,7 @@ func Test_Bind(t *testing.T) {
 			assert.Equal(t, "test user name", config.TestUser.Name)
 			assert.Equal(t, "test user anonymous value", config.TestUser.Anonymous.String)
 		}
+		assert.Equal(t, 4*time.Minute+2*time.Second, config.Duration)
 	}
 
 	assert.Len(t, registry.configs, 1)
