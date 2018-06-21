@@ -8,6 +8,7 @@ import (
 	"strconv"
 	"strings"
 	"sync"
+	"time"
 )
 
 var errInvalidValue = errors.New("Invalid value")
@@ -45,6 +46,8 @@ type item struct {
 	reference reflect.Value
 }
 
+var typeOfDuration = reflect.TypeOf(time.Duration(0))
+
 func (i *item) set(rawValue string) error {
 	if len(rawValue) == 0 {
 		return nil
@@ -55,7 +58,25 @@ func (i *item) set(rawValue string) error {
 		defaultValue interface{}
 	)
 
-	switch i.reference.Type().Kind() {
+	switch i.reference.Type() {
+	case typeOfDuration:
+		defaultValue, err = time.ParseDuration(rawValue)
+	default:
+		defaultValue, err = defaultByKind(i.reference.Type(), rawValue)
+	}
+
+	if err != nil {
+		return err
+	}
+
+	if i.reference.CanSet() && defaultValue != nil {
+		i.reference.Set(reflect.ValueOf(defaultValue))
+	}
+	return nil
+}
+
+func defaultByKind(tp reflect.Type, rawValue string) (defaultValue interface{}, err error) {
+	switch tp.Kind() {
 	case reflect.String:
 		defaultValue = rawValue
 	case reflect.Int:
@@ -103,7 +124,7 @@ func (i *item) set(rawValue string) error {
 	case reflect.Bool:
 		defaultValue, err = strconv.ParseBool(rawValue)
 	case reflect.Slice:
-		switch i.reference.Type() {
+		switch tp {
 		case typeStringSlice:
 			defaultValue = strings.Split(rawValue, ",")
 		case typeIntSlice:
@@ -120,15 +141,7 @@ func (i *item) set(rawValue string) error {
 			defaultValue = arr
 		}
 	}
-
-	if err != nil {
-		return err
-	}
-
-	if i.reference.CanSet() && defaultValue != nil {
-		i.reference.Set(reflect.ValueOf(defaultValue))
-	}
-	return nil
+	return
 }
 
 func bind(i interface{}) ([]item, error) {
