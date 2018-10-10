@@ -50,11 +50,11 @@ func (d *discovery) Register(options ServiceOptions) error {
 		Tags:              append(options.Tags, "DC="+d.datacenter),
 		EnableTagOverride: true,
 		Check: &api.AgentServiceCheck{
-			Interval: options.Check.Interval,
-			Timeout:  options.Check.Timeout,
+			Interval:                       options.Check.Interval,
+			Timeout:                        options.Check.Timeout,
 			DeregisterCriticalServiceAfter: "10m",
-			HTTP: options.Check.HTTP,
-			TCP:  options.Check.TCP,
+			HTTP:                           options.Check.HTTP,
+			TCP:                            options.Check.TCP,
 		},
 	})
 }
@@ -77,9 +77,9 @@ func (a sortServiceByID) Less(i, j int) bool { return a[i].ID < a[j].ID }
 func (d *discovery) Lookup(filter *Filter) ([]Service, error) {
 	if filter == nil {
 		filter = &Filter{}
-	}       	
+	}
 
- 	if filter.Datacenter != "all" {
+	if filter.Datacenter != "all" {
 		return d.lookup(filter)
 	}
 

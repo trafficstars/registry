@@ -20,9 +20,9 @@ var (
 )
 
 type config struct {
-	mutex sync.Locker
-	ident string
-	items []item
+	rawConfig sync.Locker
+	ident     string
+	items     []item
 }
 
 func (r *registry) Bind(i sync.Locker) error {
@@ -31,14 +31,24 @@ func (r *registry) Bind(i sync.Locker) error {
 		return err
 	}
 	r.configs = append(r.configs, config{
-		mutex: i,
-		ident: fmt.Sprintf("%s.%d", reflect.TypeOf(i).Elem().Name(), len(r.configs)+1),
-		items: items,
+		rawConfig: i,
+		ident:     fmt.Sprintf("%s.%d", reflect.TypeOf(i).Elem().Name(), len(r.configs)+1),
+		items:     items,
 	})
 	if r.refreshInterval != -1 {
 		r.bindChan <- struct{}{}
 	}
 	return nil
+}
+
+func (cfg *config) callOnUpdatedMethod(updatedItemKeys []string) {
+	for _, key := range updatedItemKeys {
+		methodValue := reflect.ValueOf(cfg.rawConfig).MethodByName("OnUpdate" + key)
+		if !methodValue.IsValid() {
+			continue
+		}
+		methodValue.Call([]reflect.Value{})
+	}
 }
 
 type item struct {
@@ -47,6 +57,10 @@ type item struct {
 }
 
 var typeOfDuration = reflect.TypeOf(time.Duration(0))
+
+func (i *item) equal(value interface{}) bool {
+	return reflect.DeepEqual(i.reference.Interface(), value)
+}
 
 func (i *item) set(rawValue string) error {
 	if len(rawValue) == 0 {
