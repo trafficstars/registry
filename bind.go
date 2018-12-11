@@ -26,15 +26,15 @@ type config struct {
 }
 
 func (r *registry) Bind(i sync.Locker) error {
-	items, err := bind(i)
+	cfg := config{
+		rawConfig: i,
+		ident:     fmt.Sprintf("%s.%d", reflect.TypeOf(i).Elem().Name(), len(r.configs)+1),
+	}
+	err := cfg.bind(i)
 	if err != nil {
 		return err
 	}
-	r.configs = append(r.configs, config{
-		rawConfig: i,
-		ident:     fmt.Sprintf("%s.%d", reflect.TypeOf(i).Elem().Name(), len(r.configs)+1),
-		items:     items,
-	})
+	r.configs = append(r.configs, cfg)
 	if r.refreshInterval != -1 {
 		r.bindChan <- struct{}{}
 	}
@@ -158,7 +158,7 @@ func defaultByKind(tp reflect.Type, rawValue string) (defaultValue interface{}, 
 	return
 }
 
-func bind(i interface{}) ([]item, error) {
+func (cfg *config) bind(i interface{}) error {
 	var (
 		rt = reflect.TypeOf(i)
 		rv = reflect.ValueOf(i)
@@ -169,7 +169,7 @@ func bind(i interface{}) ([]item, error) {
 		rv = rv.Elem()
 	}
 
-	var items []item
+	var fields []string
 
 	for i := 0; i < rt.NumField(); i++ {
 		var (
@@ -181,22 +181,24 @@ func bind(i interface{}) ([]item, error) {
 		}
 		switch field.Type.Kind() {
 		case reflect.Struct:
-			i, err := bind(value.Addr().Interface())
+			err := cfg.bind(value.Addr().Interface())
 			if err != nil {
-				return nil, fmt.Errorf("'%s': %v", field.Name, err)
+				return fmt.Errorf("'%s': %v", field.Name, err)
 			}
-			items = append(items, i...)
 		default:
 			item, err := makeItem(field, value)
 			if err != nil {
-				return nil, fmt.Errorf("'%s': %v", field.Name, err)
+				return fmt.Errorf("'%s': %v", field.Name, err)
 			}
 			if len(item.key) != 0 {
-				items = append(items, item)
+				cfg.items = append(cfg.items, item)
 			}
+			fields = append(fields, field.Name)
 		}
 	}
-	return items, nil
+
+	cfg.callOnUpdatedMethod(fields) // Call method "OnUpdate<variableName>" if exists
+	return nil
 }
 
 func makeItem(field reflect.StructField, value reflect.Value) (item, error) {
