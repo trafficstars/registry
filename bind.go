@@ -30,7 +30,7 @@ func (r *registry) Bind(i sync.Locker) error {
 		rawConfig: i,
 		ident:     fmt.Sprintf("%s.%d", reflect.TypeOf(i).Elem().Name(), len(r.configs)+1),
 	}
-	err := cfg.bind(i)
+	err := cfg.bind(i, ``)
 	if err != nil {
 		return err
 	}
@@ -52,7 +52,8 @@ func (cfg *config) callOnUpdatedMethod(updatedItemKeys []string) {
 }
 
 type item struct {
-	key       string
+	key       string // registry key
+	path      string // field path (SomeField.AnotherField.LeafField -> "SomeFieldAnotherFieldLeafField")
 	reference reflect.Value
 }
 
@@ -158,7 +159,7 @@ func defaultByKind(tp reflect.Type, rawValue string) (defaultValue interface{}, 
 	return
 }
 
-func (cfg *config) bind(i interface{}) error {
+func (cfg *config) bind(i interface{}, prefix string) error {
 	var (
 		rt = reflect.TypeOf(i)
 		rv = reflect.ValueOf(i)
@@ -175,25 +176,26 @@ func (cfg *config) bind(i interface{}) error {
 		var (
 			field = rt.Field(i)
 			value = rv.FieldByName(field.Name)
+			fieldPath = prefix+field.Name
 		)
 		if len(field.PkgPath) != 0 { // enexported
 			continue
 		}
 		switch field.Type.Kind() {
 		case reflect.Struct:
-			err := cfg.bind(value.Addr().Interface())
+			err := cfg.bind(value.Addr().Interface(), fieldPath)
 			if err != nil {
 				return fmt.Errorf("'%s': %v", field.Name, err)
 			}
 		default:
-			item, err := makeItem(field, value)
+			item, err := makeItem(field, fieldPath, value)
 			if err != nil {
 				return fmt.Errorf("'%s': %v", field.Name, err)
 			}
 			if len(item.key) != 0 {
 				cfg.items = append(cfg.items, item)
 			}
-			fields = append(fields, field.Name)
+			fields = append(fields, fieldPath)
 		}
 	}
 
@@ -201,7 +203,7 @@ func (cfg *config) bind(i interface{}) error {
 	return nil
 }
 
-func makeItem(field reflect.StructField, value reflect.Value) (item, error) {
+func makeItem(field reflect.StructField, path string, value reflect.Value) (item, error) {
 	if value.Kind() == reflect.Ptr {
 		value = value.Elem()
 	}
@@ -236,7 +238,7 @@ func makeItem(field reflect.StructField, value reflect.Value) (item, error) {
 		}
 	}
 
-	new := item{key: registryKey, reference: value}
+	new := item{key: registryKey, reference: value, path: path}
 
 	if err := new.set(rawValue); err != nil {
 		return item{}, err

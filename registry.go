@@ -111,7 +111,7 @@ func (r *registry) refresh() {
 				continue
 			}
 			item.set(value)
-			updatedItemKeys = append(updatedItemKeys, item.key)
+			updatedItemKeys = append(updatedItemKeys, item.path)
 		}
 		config.rawConfig.Unlock()
 
