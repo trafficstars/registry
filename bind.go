@@ -26,15 +26,15 @@ type config struct {
 }
 
 func (r *registry) Bind(i sync.Locker) error {
-	items, err := bind(i)
+	cfg := config{
+		rawConfig: i,
+		ident:     fmt.Sprintf("%s.%d", reflect.TypeOf(i).Elem().Name(), len(r.configs)+1),
+	}
+	err := cfg.bind(i, ``)
 	if err != nil {
 		return err
 	}
-	r.configs = append(r.configs, config{
-		rawConfig: i,
-		ident:     fmt.Sprintf("%s.%d", reflect.TypeOf(i).Elem().Name(), len(r.configs)+1),
-		items:     items,
-	})
+	r.configs = append(r.configs, cfg)
 	if r.refreshInterval != -1 {
 		r.bindChan <- struct{}{}
 	}
@@ -52,7 +52,8 @@ func (cfg *config) callOnUpdatedMethod(updatedItemKeys []string) {
 }
 
 type item struct {
-	key       string
+	key       string // registry key
+	path      string // field path (SomeField.AnotherField.LeafField -> "SomeFieldAnotherFieldLeafField")
 	reference reflect.Value
 }
 
@@ -158,7 +159,7 @@ func defaultByKind(tp reflect.Type, rawValue string) (defaultValue interface{}, 
 	return
 }
 
-func bind(i interface{}) ([]item, error) {
+func (cfg *config) bind(i interface{}, prefix string) error {
 	var (
 		rt = reflect.TypeOf(i)
 		rv = reflect.ValueOf(i)
@@ -169,37 +170,40 @@ func bind(i interface{}) ([]item, error) {
 		rv = rv.Elem()
 	}
 
-	var items []item
+	var fields []string
 
 	for i := 0; i < rt.NumField(); i++ {
 		var (
 			field = rt.Field(i)
 			value = rv.FieldByName(field.Name)
+			fieldPath = prefix+field.Name
 		)
 		if len(field.PkgPath) != 0 { // enexported
 			continue
 		}
 		switch field.Type.Kind() {
 		case reflect.Struct:
-			i, err := bind(value.Addr().Interface())
+			err := cfg.bind(value.Addr().Interface(), fieldPath)
 			if err != nil {
-				return nil, fmt.Errorf("'%s': %v", field.Name, err)
+				return fmt.Errorf("'%s': %v", field.Name, err)
 			}
-			items = append(items, i...)
 		default:
-			item, err := makeItem(field, value)
+			item, err := makeItem(field, fieldPath, value)
 			if err != nil {
-				return nil, fmt.Errorf("'%s': %v", field.Name, err)
+				return fmt.Errorf("'%s': %v", field.Name, err)
 			}
 			if len(item.key) != 0 {
-				items = append(items, item)
+				cfg.items = append(cfg.items, item)
 			}
+			fields = append(fields, fieldPath)
 		}
 	}
-	return items, nil
+
+	cfg.callOnUpdatedMethod(fields) // Call method "OnUpdate<variableName>" if exists
+	return nil
 }
 
-func makeItem(field reflect.StructField, value reflect.Value) (item, error) {
+func makeItem(field reflect.StructField, path string, value reflect.Value) (item, error) {
 	if value.Kind() == reflect.Ptr {
 		value = value.Elem()
 	}
@@ -234,7 +238,7 @@ func makeItem(field reflect.StructField, value reflect.Value) (item, error) {
 		}
 	}
 
-	new := item{key: registryKey, reference: value}
+	new := item{key: registryKey, reference: value, path: path}
 
 	if err := new.set(rawValue); err != nil {
 		return item{}, err
