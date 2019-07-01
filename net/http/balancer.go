@@ -6,8 +6,9 @@ import (
 	"net"
 	"strconv"
 	"strings"
-	"sync"
+	"sync/atomic"
 	"time"
+	"unsafe"
 
 	"github.com/trafficstars/registry"
 )
@@ -44,22 +45,23 @@ func Init(strategy BalancingStrategy, discovery registry.Discovery, localAddrs .
 
 	_balancer = balancer{
 		strategy:   strategy,
-		upstreams:  make(map[string]*upstream),
 		discovery:  discovery,
 		localAddrs: localAddrs,
 	}
+
+	upstreams := make(map[string]*upstream)
+	atomic.StorePointer(&_balancer.upstreams, unsafe.Pointer(&upstreams))
+
 	_balancer.lookup()
 	go _balancer.supervisor()
 }
 
 type balancer struct {
-	mutex sync.RWMutex
-
 	// Strategy of address balancing
 	strategy BalancingStrategy
 
-	upstreams map[string]*upstream
-	backends  map[string]backends
+	// upstreams map[string]*upstream
+	upstreams unsafe.Pointer
 	discovery registry.Discovery
 
 	localAddrs []string
@@ -67,7 +69,7 @@ type balancer struct {
 
 func (b *balancer) lookup() error {
 	var (
-		backendServices = make(map[string]backends, len(b.backends))
+		backendServices = map[string]backends{}
 		services, err   = b.discovery.Lookup(nil)
 	)
 	if err != nil {
@@ -85,14 +87,7 @@ func (b *balancer) lookup() error {
 		}
 	}
 
-	b.mutex.Lock()
-	defer b.mutex.Unlock()
-
-	for key := range b.upstreams {
-		if _, found := backendServices[key]; !found {
-			delete(b.upstreams, key)
-		}
-	}
+	upstreams := map[string]*upstream{}
 
 	for key, backends := range backendServices {
 		var priorityBackend *backend
@@ -107,13 +102,16 @@ func (b *balancer) lookup() error {
 			}
 		}
 
-		b.upstreams[key] = &upstream{
+		upstreams[key] = &upstream{
 			priorityBackend: priorityBackend,
 			backends:        backends,
 			gcd:             backends.gcd(),
 			maxWeight:       backends.maxWeight(),
 		}
 	}
+
+	atomic.StorePointer(&b.upstreams, unsafe.Pointer(&upstreams))
+
 	return nil
 }
 
@@ -128,9 +126,8 @@ func (b *balancer) supervisor() {
 }
 
 func (b *balancer) countOfBackends(service string) int {
-	b.mutex.RLock()
-	defer b.mutex.RUnlock()
-	if upstream, found := b.upstreams[service]; found {
+	upstreams := *(*map[string]*upstream)(atomic.LoadPointer(&b.upstreams))
+	if upstream, found := upstreams[service]; found {
 		return len(upstream.backends)
 	}
 	return 0
@@ -165,9 +162,8 @@ func (b *balancer) next(service string, maxRequestsByBackend int) (*backend, err
 }
 
 func (b *balancer) getUpstreamByServiceName(service string) *upstream {
-	b.mutex.RLock()
-	defer b.mutex.RUnlock()
-	ups, _ := b.upstreams[service]
+	upstreams := *(*map[string]*upstream)(atomic.LoadPointer(&b.upstreams))
+	ups, _ := upstreams[service]
 	return ups
 }
 
