@@ -23,7 +23,7 @@ type upstream struct {
 func (ups *upstream) nextBackend(maxRequestsByBackend int) (back *backend) {
 	// First send requests to the priority backend (generally this is the local service)
 	if ups.priorityBackend != nil {
-		if maxRequestsByBackend <= 0 || maxRequestsByBackend > ups.priorityBackend.requestCount() {
+		if maxRequestsByBackend <= 0 || maxRequestsByBackend > ups.priorityBackend.concurrentRequestCount() {
 			return ups.priorityBackend
 		}
 	}
@@ -35,7 +35,7 @@ func (ups *upstream) nextBackend(maxRequestsByBackend int) (back *backend) {
 		index := atomic.AddUint32(&ups.index, 1)
 		back = backends[index%backendCount]
 
-		if maxRequestsByBackend <= 0 || maxRequestsByBackend > back.requestCount() {
+		if maxRequestsByBackend <= 0 || maxRequestsByBackend > back.concurrentRequestCount() {
 			return back
 		}
 	}
@@ -45,7 +45,7 @@ func (ups *upstream) nextBackend(maxRequestsByBackend int) (back *backend) {
 func (ups *upstream) nextWeightBackend(maxRequestsByBackend int) *backend {
 	// First send requests to the priority backend (generally this is the local service)
 	if ups.priorityBackend != nil {
-		if maxRequestsByBackend <= 0 || maxRequestsByBackend > ups.priorityBackend.requestCount() {
+		if maxRequestsByBackend <= 0 || maxRequestsByBackend > ups.priorityBackend.concurrentRequestCount() {
 			return ups.priorityBackend
 		}
 	}
@@ -63,20 +63,21 @@ func (ups *upstream) nextWeightBackend(maxRequestsByBackend int) *backend {
 			backend       = backends[index]
 		)
 
+		if maxRequestsByBackend > backend.concurrentRequestCount() {
+			continue
+		}
+
 		if index == 0 {
-			if ups.maxWeight != 0 {
-				currentWeight = atomic.AddInt32(&ups.currentWeight, -ups.gcd)
-				if currentWeight <= 0 {
-					atomic.StoreInt32(&ups.currentWeight, ups.maxWeight)
-					currentWeight = ups.maxWeight
+			currentWeight = atomic.AddInt32(&ups.currentWeight, -ups.gcd)
+			if currentWeight <= 0 {
+				atomic.StoreInt32(&ups.currentWeight, ups.maxWeight)
+				if ups.maxWeight == 0 {
+					return backend
 				}
+				currentWeight = ups.maxWeight
 			}
 		} else {
 			currentWeight = atomic.LoadInt32(&ups.currentWeight)
-		}
-
-		if maxRequestsByBackend > backend.requestCount() {
-			continue
 		}
 
 		if int32(backend.weight) >= currentWeight {

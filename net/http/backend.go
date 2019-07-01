@@ -1,6 +1,9 @@
 package http
 
-import "sync/atomic"
+import (
+	"math"
+	"sync/atomic"
+)
 
 type backend struct {
 	skipCounter    int32
@@ -17,14 +20,21 @@ func (b *backend) skip() {
 }
 
 func (b *backend) doSkip() bool {
-	return atomic.AddInt32(&b.skipCounter, -1) >= 0
+	counter := atomic.AddInt32(&b.skipCounter, -1)
+	if counter < math.MaxInt32 {
+		// Reset the counter
+		if old := atomic.SwapInt32(&b.skipCounter, 0); old > 0 {
+			atomic.CompareAndSwapInt32(&b.skipCounter, 0, old)
+		}
+	}
+	return counter >= 0
 }
 
-func (b *backend) requestCount() int {
+func (b *backend) concurrentRequestCount() int {
 	return (int)(atomic.LoadInt32(&b.requestCounter))
 }
 
-func (b *backend) incRequest(v int32) int32 {
+func (b *backend) incConcurrentRequest(v int32) int32 {
 	return atomic.AddInt32(&b.requestCounter, v)
 }
 

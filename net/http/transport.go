@@ -33,8 +33,8 @@ func (t *Transport) RoundTrip(req *http.Request) (*http.Response, error) {
 	}
 	for i := 0; i <= maxRetry; i++ {
 		if backend, err = _balancer.next(service, t.MaxRequestsByBackend); err == nil {
-			backend.incRequest(1)
-			defer backend.incRequest(-1)
+			backend.incConcurrentRequest(1)
+			defer backend.incConcurrentRequest(-1)
 
 			req.URL.Host = backend.address
 			req.Body = ioutil.NopCloser(bytes.NewBuffer(body))
