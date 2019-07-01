@@ -95,20 +95,20 @@ func (b *balancer) lookup() error {
 	}
 
 	for key, backends := range backendServices {
-		var preoretyBackend *backend
+		var priorityBackend *backend
 
 	loop:
 		for _, bk := range backends {
 			for _, addr := range b.localAddrs {
 				if addr == bk.hostaddress {
-					preoretyBackend = bk
+					priorityBackend = bk
 					break loop
 				}
 			}
 		}
 
 		b.upstreams[key] = &upstream{
-			preoretyBackend: preoretyBackend,
+			priorityBackend: priorityBackend,
 			backends:        backends,
 			gcd:             backends.gcd(),
 			maxWeight:       backends.maxWeight(),

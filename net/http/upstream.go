@@ -10,8 +10,8 @@ type upstream struct {
 	currentWeight int32
 	maxWeight     int32
 
-	// preorety backend
-	preoretyBackend *backend
+	// priority backend
+	priorityBackend *backend
 
 	// List of the upstream backends
 	backends backends
@@ -22,9 +22,9 @@ type upstream struct {
 
 func (ups *upstream) nextBackend(maxRequestsByBackend int) (back *backend) {
 	// First send requests to the priority backend (generally this is the local service)
-	if ups.preoretyBackend != nil {
-		if maxRequestsByBackend <= 0 || maxRequestsByBackend > ups.preoretyBackend.requestCount() {
-			return ups.preoretyBackend
+	if ups.priorityBackend != nil {
+		if maxRequestsByBackend <= 0 || maxRequestsByBackend > ups.priorityBackend.requestCount() {
+			return ups.priorityBackend
 		}
 	}
 
@@ -44,9 +44,9 @@ func (ups *upstream) nextBackend(maxRequestsByBackend int) (back *backend) {
 
 func (ups *upstream) nextWeightBackend(maxRequestsByBackend int) *backend {
 	// First send requests to the priority backend (generally this is the local service)
-	if ups.preoretyBackend != nil {
-		if maxRequestsByBackend <= 0 || maxRequestsByBackend > ups.preoretyBackend.requestCount() {
-			return ups.preoretyBackend
+	if ups.priorityBackend != nil {
+		if maxRequestsByBackend <= 0 || maxRequestsByBackend > ups.priorityBackend.requestCount() {
+			return ups.priorityBackend
 		}
 	}
 
