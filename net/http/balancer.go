@@ -28,19 +28,6 @@ var _balancer balancer
 func Init(strategy BalancingStrategy, discovery registry.Discovery, localAddrs ...string) {
 	if len(localAddrs) == 0 || localAddrs[0] == "" {
 		localAddrs, _ = listOfLocalAddresses()
-
-		// all IPv4 addresses on the local machine
-		const allAddress = "0.0.0.0"
-		hasAllAddress := false
-		for _, addr := range localAddrs {
-			if addr == allAddress {
-				hasAllAddress = true
-				break
-			}
-		}
-		if !hasAllAddress {
-			localAddrs = append(localAddrs, allAddress)
-		}
 	}
 
 	_balancer = balancer{
