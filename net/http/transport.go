@@ -6,13 +6,16 @@ import (
 	"net/http"
 )
 
-const DefaultMaxRetry = 4
+const DefaultMaxRetry = 2
 
+// Transport wrapper of the HTTP transport object
 type Transport struct {
-	MaxRetry int
+	MaxRetry             int
+	MaxRequestsByBackend int
 	http.Transport
 }
 
+// RoundTrip executes a single HTTP transaction, returning a Response for the provided Request.
 func (t *Transport) RoundTrip(req *http.Request) (*http.Response, error) {
 	var (
 		err      error
@@ -29,7 +32,10 @@ func (t *Transport) RoundTrip(req *http.Request) (*http.Response, error) {
 		body, _ = ioutil.ReadAll(req.Body)
 	}
 	for i := 0; i <= maxRetry; i++ {
-		if backend, err = _balancer.nextRoundRobin(service); err == nil {
+		if backend, err = _balancer.next(service, t.MaxRequestsByBackend); err == nil {
+			backend.incRequest(1)
+			defer backend.incRequest(-1)
+
 			req.URL.Host = backend.address
 			req.Body = ioutil.NopCloser(bytes.NewBuffer(body))
 			if response, err = t.Transport.RoundTrip(req); err == nil {
@@ -40,3 +46,5 @@ func (t *Transport) RoundTrip(req *http.Request) (*http.Response, error) {
 	}
 	return nil, err
 }
+
+var _ http.RoundTripper = (*Transport)(nil)
