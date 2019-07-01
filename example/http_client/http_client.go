@@ -72,7 +72,7 @@ func main() {
 		http.ListenAndServe(":8899", &service{"srv3"})
 	}()
 
-	transport.Init(discovery)
+	transport.Init(transport.RoundRobinStrategy, discovery)
 
 	client := http.Client{
 		Transport: &transport.Transport{

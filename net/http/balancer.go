@@ -3,113 +3,103 @@ package http
 import (
 	"fmt"
 	"math"
-	"math/rand"
 	"net"
 	"strconv"
 	"strings"
-	"sync"
+	"sync/atomic"
 	"time"
+	"unsafe"
 
 	"github.com/trafficstars/registry"
 )
 
+// BalancingStrategy type
+type BalancingStrategy int
+
+// Balancyng strategy variants
+const (
+	RoundRobinStrategy BalancingStrategy = iota
+	WeightStrategy
+)
+
 var _balancer balancer
 
-func Init(discovery registry.Discovery) {
-	rand.Seed(time.Now().UnixNano())
-	_balancer = balancer{
-		upstreams: make(map[string]*upstream),
-		discovery: discovery,
+// Init balancer based on descovery
+func Init(strategy BalancingStrategy, discovery registry.Discovery, localAddrs ...string) {
+	if len(localAddrs) == 0 || localAddrs[0] == "" {
+		localAddrs, _ = listOfLocalAddresses()
 	}
+
+	_balancer = balancer{
+		strategy:   strategy,
+		discovery:  discovery,
+		localAddrs: localAddrs,
+	}
+
+	upstreams := make(map[string]*upstream)
+	atomic.StorePointer(&_balancer.upstreams, unsafe.Pointer(&upstreams))
+
 	_balancer.lookup()
 	go _balancer.supervisor()
 }
 
-type (
-	backend struct {
-		weight      int
-		skipCounter int
-		address     string
-	}
-	backends []*backend
-	upstream struct {
-		index         int
-		gcd           int //greatest common divisor
-		maxWeight     int
-		currentWeight int
-		backends      backends
-	}
-)
-
-func (b *backend) skip() {
-	b.skipCounter = 7
-}
-func (b backends) maxWeight() int {
-	maxWeight := -1
-	for _, backend := range b {
-		if backend.weight > maxWeight {
-			maxWeight = backend.weight
-		}
-	}
-	return maxWeight
-}
-
-func (b backends) gcd() int {
-	divisor := -1
-	for _, backend := range b {
-		if divisor == -1 {
-			divisor = backend.weight
-		} else {
-			divisor = gcd(divisor, backend.weight)
-		}
-	}
-	return divisor
-}
-
-func gcd(a, b int) int {
-	for b != 0 {
-		a, b = b, a%b
-	}
-	return a
-}
-
 type balancer struct {
-	mutex     sync.RWMutex
-	upstreams map[string]*upstream
-	backends  map[string]backends
+	// Strategy of address balancing
+	strategy BalancingStrategy
+
+	// upstreams map[string]*upstream
+	upstreams unsafe.Pointer
 	discovery registry.Discovery
+
+	localAddrs []string
 }
 
-func (b *balancer) lookup() {
+func (b *balancer) lookup() error {
 	var (
-		backends      = make(map[string]backends, len(b.backends))
-		services, err = b.discovery.Lookup(nil)
+		backendServices = map[string]backends{}
+		services, err   = b.discovery.Lookup(nil)
 	)
 	if err != nil {
-		return
+		return err
 	}
+
+	// Group backends by services
 	for _, service := range services {
 		if service.Status == registry.SERVICE_STATUS_PASSING {
-			backends[service.Name] = append(backends[service.Name], &backend{
-				weight:  serverWeight(&service),
-				address: net.JoinHostPort(service.Address, strconv.Itoa(service.Port)),
+			backendServices[service.Name] = append(backendServices[service.Name], &backend{
+				weight:      int32(serverWeight(&service)),
+				hostaddress: service.Address,
+				address:     net.JoinHostPort(service.Address, strconv.Itoa(service.Port)),
 			})
 		}
 	}
-	b.mutex.Lock()
-	defer b.mutex.Unlock()
-	for key := range b.upstreams {
-		if _, found := backends[key]; !found {
-			delete(b.upstreams, key)
+
+	upstreams := map[string]*upstream{}
+
+	for key, backends := range backendServices {
+		var priorityBackend *backend
+
+	loop:
+		for _, bk := range backends {
+			for _, addr := range b.localAddrs {
+				if addr == bk.hostaddress {
+					priorityBackend = bk
+					break loop
+				}
+			}
+		}
+
+		upstreams[key] = &upstream{
+			priorityBackend: priorityBackend,
+			backends:        backends,
+			gcd:             backends.gcd(),
+			maxWeight:       backends.maxWeight(),
 		}
 	}
-	for key, backends := range backends {
-		b.upstreams[key] = &upstream{
-			backends:  backends,
-			gcd:       backends.gcd(),
-			maxWeight: backends.maxWeight(),
-		}
-	}
+
+	atomic.StorePointer(&b.upstreams, unsafe.Pointer(&upstreams))
+
+	return nil
 }
 
 func (b *balancer) supervisor() {
@@ -123,49 +113,45 @@ func (b *balancer) supervisor() {
 }
 
 func (b *balancer) countOfBackends(service string) int {
-	b.mutex.RLock()
-	defer b.mutex.RUnlock()
-	if upstream, found := b.upstreams[service]; found {
+	upstreams := *(*map[string]*upstream)(atomic.LoadPointer(&b.upstreams))
+	if upstream, found := upstreams[service]; found {
 		return len(upstream.backends)
 	}
 	return 0
 }
 
-func (b *balancer) nextRoundRobin(service string) (*backend, error) {
-	b.mutex.RLock()
-	defer b.mutex.RUnlock()
-	if upstream, found := b.upstreams[service]; found {
-		upstream.index = (upstream.index + 1) % len(upstream.backends)
-		return upstream.backends[upstream.index], nil
+func (b *balancer) nextRoundRobin(service string, maxRequestsByBackend int) (*backend, error) {
+	upstream := b.getUpstreamByServiceName(service)
+	if upstream != nil {
+		return upstream.nextBackend(maxRequestsByBackend), nil
 	}
 	return nil, fmt.Errorf("Service '%s' not found", service)
 }
 
-func (b *balancer) nextWeight(service string) (*backend, error) {
-	b.mutex.RLock()
-	defer b.mutex.RUnlock()
-	if upstream, found := b.upstreams[service]; found {
-		for {
-			upstream.index = (upstream.index + 1) % len(upstream.backends)
-			if upstream.index == 0 {
-				upstream.currentWeight = upstream.currentWeight - upstream.gcd
-				if upstream.currentWeight <= 0 {
-					upstream.currentWeight = upstream.maxWeight
-					if upstream.currentWeight == 0 {
-						return upstream.backends[upstream.index], nil
-					}
-				}
-			}
-			if backend := upstream.backends[upstream.index]; backend.weight >= upstream.currentWeight {
-				if backend.skipCounter != 0 {
-					backend.skipCounter--
-					continue
-				}
-				return backend, nil
-			}
-		}
+func (b *balancer) nextWeight(service string, maxRequestsByBackend int) (*backend, error) {
+	upstream := b.getUpstreamByServiceName(service)
+	if upstream == nil {
+		return nil, fmt.Errorf("Service '%s' not found", service)
 	}
-	return nil, fmt.Errorf("Service '%s' not found", service)
+
+	if backend := upstream.nextWeightBackend(maxRequestsByBackend); backend != nil {
+		return backend, nil
+	}
+
+	return nil, fmt.Errorf("Service backend of '%s' not found", service)
+}
+
+func (b *balancer) next(service string, maxRequestsByBackend int) (*backend, error) {
+	if b.strategy == WeightStrategy {
+		return b.nextWeight(service, maxRequestsByBackend)
+	}
+	return b.nextRoundRobin(service, maxRequestsByBackend)
+}
+
+func (b *balancer) getUpstreamByServiceName(service string) *upstream {
+	upstreams := *(*map[string]*upstream)(atomic.LoadPointer(&b.upstreams))
+	ups, _ := upstreams[service]
+	return ups
 }
 
 func serverWeight(s *registry.Service) int {

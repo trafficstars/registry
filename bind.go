@@ -174,9 +174,9 @@ func (cfg *config) bind(i interface{}, prefix string) error {
 
 	for i := 0; i < rt.NumField(); i++ {
 		var (
-			field = rt.Field(i)
-			value = rv.FieldByName(field.Name)
-			fieldPath = prefix+field.Name
+			field     = rt.Field(i)
+			value     = rv.FieldByName(field.Name)
+			fieldPath = prefix + field.Name
 		)
 		if len(field.PkgPath) != 0 { // enexported
 			continue
