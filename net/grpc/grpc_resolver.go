@@ -14,7 +14,6 @@ const defaultRefreshInterval = time.Second * 5
 
 type grpcMetadata struct {
 	serviceName          string
-	defaultPort 				 string
 	backend              *net_balancer.Backend
 	balancer             net_balancer.Balancer
 	maxRequestsByBackend int
@@ -23,9 +22,6 @@ type grpcMetadata struct {
 type grpcResolver struct {
 	// Service name in the discovery registry
 	serviceName string
-
-	// Default port
-	defaultPort string
 
 	// Maximal amount of requests by backend
 	maxRequestsByBackend int
@@ -95,7 +91,6 @@ func (r *grpcResolver) refreshConnection() (err error) {
 			Addr: backend.Address(),
 			Metadata: &grpcMetadata{
 				serviceName:          service,
-				defaultPort: r.defaultPort,
 				backend:              backend,
 				balancer:             balancer,
 				maxRequestsByBackend: r.maxRequestsByBackend,

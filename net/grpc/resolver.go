@@ -65,7 +65,6 @@ func (b *builder) Build(target resolver.Target, cc resolver.ClientConn, opts res
 	ctx, cancel := context.WithCancel(context.Background())
 	resolv := &grpcResolver{
 		serviceName: host,
-		defaultPort: port,
 		balancer:    b.balancer,
 		freq:        b.freq,
 		ctx:         ctx,

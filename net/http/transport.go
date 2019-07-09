@@ -5,7 +5,7 @@ import (
 	"io/ioutil"
 	"net/http"
 
-	"github.com/trafficstars/registry/net/balancer"
+	regbalancer	"github.com/trafficstars/registry/net/balancer"
 )
 
 // DefaultMaxRetry count
@@ -20,7 +20,7 @@ type Transport struct {
 	MaxRequestsByBackend int
 
 	// Balancer default for this RoundTripper
-	Balancer balancer.Balancer
+	Balancer regbalancer.Balancer
 
 	// Target HTTP transport
 	http.Transport
@@ -31,7 +31,7 @@ func (t *Transport) RoundTrip(req *http.Request) (*http.Response, error) {
 	var (
 		err      error
 		body     []byte
-		backend  *balancer.Backend
+		backend  *regbalancer.Backend
 		response *http.Response
 		service  = req.URL.Host
 		maxRetry = t.MaxRetry
@@ -41,7 +41,7 @@ func (t *Transport) RoundTrip(req *http.Request) (*http.Response, error) {
 		maxRetry = DefaultMaxRetry
 	}
 	if balancer == nil {
-		balancer = balancer.Default()
+		balancer = regbalancer.Default()
 	}
 	if req.Body != nil {
 		body, _ = ioutil.ReadAll(req.Body)
