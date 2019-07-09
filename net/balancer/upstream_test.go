@@ -1,4 +1,4 @@
-package http
+package balancer
 
 import "testing"
 
@@ -12,9 +12,9 @@ import "testing"
 func Benchmark_NextBackend(b *testing.B) {
 	ups := upstream{
 		backends: backends{
-			&backend{address: "test1"},
-			&backend{address: "test2"},
-			&backend{address: "test3"},
+			&Backend{address: "test1"},
+			&Backend{address: "test2"},
+			&Backend{address: "test3"},
 		},
 	}
 

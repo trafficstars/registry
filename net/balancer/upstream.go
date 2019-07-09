@@ -1,4 +1,4 @@
-package http
+package balancer
 
 import "sync/atomic"
 
@@ -11,7 +11,7 @@ type upstream struct {
 	maxWeight     int32
 
 	// priority backend
-	priorityBackend *backend
+	priorityBackend *Backend
 
 	// List of the upstream backends
 	backends backends
@@ -20,10 +20,10 @@ type upstream struct {
 	gcd int32
 }
 
-func (ups *upstream) nextBackend(maxRequestsByBackend int) (back *backend) {
+func (ups *upstream) nextBackend(maxRequestsByBackend int) (back *Backend) {
 	// First send requests to the priority backend (generally this is the local service)
 	if ups.priorityBackend != nil {
-		if maxRequestsByBackend <= 0 || maxRequestsByBackend > ups.priorityBackend.concurrentRequestCount() {
+		if maxRequestsByBackend <= 0 || maxRequestsByBackend > ups.priorityBackend.ConcurrentRequestCount() {
 			return ups.priorityBackend
 		}
 	}
@@ -35,17 +35,17 @@ func (ups *upstream) nextBackend(maxRequestsByBackend int) (back *backend) {
 		index := atomic.AddUint32(&ups.index, 1)
 		back = backends[index%backendCount]
 
-		if maxRequestsByBackend <= 0 || maxRequestsByBackend > back.concurrentRequestCount() {
+		if maxRequestsByBackend <= 0 || maxRequestsByBackend > back.ConcurrentRequestCount() {
 			return back
 		}
 	}
 	return nil
 }
 
-func (ups *upstream) nextWeightBackend(maxRequestsByBackend int) *backend {
+func (ups *upstream) nextWeightBackend(maxRequestsByBackend int) *Backend {
 	// First send requests to the priority backend (generally this is the local service)
 	if ups.priorityBackend != nil {
-		if maxRequestsByBackend <= 0 || maxRequestsByBackend > ups.priorityBackend.concurrentRequestCount() {
+		if maxRequestsByBackend <= 0 || maxRequestsByBackend > ups.priorityBackend.ConcurrentRequestCount() {
 			return ups.priorityBackend
 		}
 	}
@@ -63,7 +63,7 @@ func (ups *upstream) nextWeightBackend(maxRequestsByBackend int) *backend {
 			backend       = backends[index]
 		)
 
-		if maxRequestsByBackend > backend.concurrentRequestCount() {
+		if maxRequestsByBackend > backend.ConcurrentRequestCount() {
 			continue
 		}
 
@@ -81,7 +81,7 @@ func (ups *upstream) nextWeightBackend(maxRequestsByBackend int) *backend {
 		}
 
 		if int32(backend.weight) >= currentWeight {
-			if backend.doSkip() {
+			if backend.DoSkip() {
 				continue
 			}
 			return backend

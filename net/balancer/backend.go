@@ -1,11 +1,12 @@
-package http
+package balancer
 
 import (
 	"math"
 	"sync/atomic"
 )
 
-type backend struct {
+// Backend describe one service instance info
+type Backend struct {
 	skipCounter    int32
 	requestCounter int32
 	weight         int32
@@ -13,13 +14,13 @@ type backend struct {
 	address        string
 }
 
-type backends []*backend
-
-func (b *backend) skip() {
+// Skip activates skip counter
+func (b *Backend) Skip() {
 	atomic.StoreInt32(&b.skipCounter, 7)
 }
 
-func (b *backend) doSkip() bool {
+// DoSkip reduce counter of skips and returns if it necessary to skip this step
+func (b *Backend) DoSkip() bool {
 	counter := atomic.AddInt32(&b.skipCounter, -1)
 	if counter < math.MaxInt32 {
 		// Reset the counter
@@ -30,13 +31,27 @@ func (b *backend) doSkip() bool {
 	return counter >= 0
 }
 
-func (b *backend) concurrentRequestCount() int {
+// ConcurrentRequestCount returns current amount of concurent requests
+func (b *Backend) ConcurrentRequestCount() int {
 	return (int)(atomic.LoadInt32(&b.requestCounter))
 }
 
-func (b *backend) incConcurrentRequest(v int32) int32 {
+// IncConcurrentRequest increments current request counter
+func (b *Backend) IncConcurrentRequest(v int32) int32 {
 	return atomic.AddInt32(&b.requestCounter, v)
 }
+
+// Address of the backend returns the IP address
+func (b *Backend) Address() string {
+	return b.address
+}
+
+// Hostname of the backend
+func (b *Backend) Hostname() string {
+	return b.hostaddress
+}
+
+type backends []*Backend
 
 func (b backends) maxWeight() int32 {
 	maxWeight := int32(-1)
