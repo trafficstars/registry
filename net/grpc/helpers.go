@@ -29,7 +29,7 @@ func parseTarget(target, portByDefault string) (host, port string, err error) {
 	}
 	if !strings.Contains(target, "://") {
 		if host, port, err = net.SplitHostPort(target); err == nil {
-			return host, port, nil
+			return strings.ToLower(host), port, nil
 		}
 	} else if u, err := url.Parse(target); err == nil {
 		host = u.Hostname()
@@ -37,7 +37,7 @@ func parseTarget(target, portByDefault string) (host, port string, err error) {
 		if port == "" {
 			port = portByDefault
 		}
-		return host, port, nil
+		return strings.ToLower(host), port, nil
 	}
 	return "", "", fmt.Errorf("invalid target address %v, error info: %v", target, err)
 }

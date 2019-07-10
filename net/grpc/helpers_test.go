@@ -49,6 +49,10 @@ func Test_targetParser(t *testing.T) {
 			input:  "registry://%",
 			result: ":",
 		},
+		{
+			input:  "registry://HoStNaMe:255",
+			result: "hostname:255",
+		},
 	}
 
 	for _, test := range tests {

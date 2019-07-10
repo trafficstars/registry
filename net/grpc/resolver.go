@@ -34,6 +34,12 @@ func NewResolveBuilder(name string, discovery registry.Discovery, opts ...Builde
 	for _, opt := range opts {
 		opt(b)
 	}
+	if b.freq.Seconds() < 1 {
+		b.freq = defaultRefreshInterval
+	}
+	if b.balancer == nil {
+		b.balancer = balancer.Default()
+	}
 	return b
 }
 

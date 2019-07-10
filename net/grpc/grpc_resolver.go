@@ -3,7 +3,6 @@ package grpc
 import (
 	"context"
 	"time"
-	"log"
 
 	"google.golang.org/grpc/resolver"
 
@@ -25,9 +24,6 @@ type grpcResolver struct {
 
 	// Maximal amount of requests by backend
 	maxRequestsByBackend int
-
-	// Backend used at the moment
-	currentBackend *net_balancer.Backend
 
 	// Default connection balancer
 	balancer net_balancer.Balancer
@@ -56,12 +52,6 @@ func (r *grpcResolver) Close() {
 }
 
 func (r *grpcResolver) watcher() {
-	if r.t != nil {
-		panic("time already runned")
-	}
-	if r.freq == 0 {
-		r.freq = defaultRefreshInterval
-	}
 	r.t = time.NewTicker(r.freq)
 	for {
 		select {
@@ -69,13 +59,11 @@ func (r *grpcResolver) watcher() {
 		case <-r.ctx.Done():
 			return
 		}
-		if err := r.refreshConnection(); err != nil {
-			log.Println(err)
-		}
+		r.refreshConnection()
 	}
 }
 
-func (r *grpcResolver) refreshConnection() (err error) {
+func (r *grpcResolver) refreshConnection() {
 	var (
 		service  = r.serviceName
 		balancer = r.balancer
@@ -99,7 +87,6 @@ func (r *grpcResolver) refreshConnection() (err error) {
 	}
 
 	r.cc.NewAddress(address)
-	return err
 }
 
 var _ resolver.Resolver = (*grpcResolver)(nil)
