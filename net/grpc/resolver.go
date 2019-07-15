@@ -14,15 +14,15 @@ import (
 // BuilderOption type
 type BuilderOption func(b *builder)
 
-// Balancer reolver option
-func Balancer(balancer balancer.Balancer) BuilderOption {
+// WithBalancer reolver option
+func WithBalancer(balancer balancer.Balancer) BuilderOption {
 	return func(b *builder) {
 		b.balancer = balancer
 	}
 }
 
-// RefreshInterval option
-func RefreshInterval(freq time.Duration) BuilderOption {
+// WithRefreshInterval option
+func WithRefreshInterval(freq time.Duration) BuilderOption {
 	return func(b *builder) {
 		b.freq = freq
 	}

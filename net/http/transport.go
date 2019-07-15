@@ -11,22 +11,22 @@ import (
 // Option type
 type Option func(opt *Transport)
 
-// Balancer option setup
-func Balancer(balancer regbalancer.Balancer) Option {
+// WithBalancer option setup
+func WithBalancer(balancer regbalancer.Balancer) Option {
 	return func(opt *Transport) {
 		opt.balancer = balancer
 	}
 }
 
-// MaxRequestsByBackend option setup
-func MaxRequestsByBackend(maxRequestsByBackend int) Option {
+// WithMaxRequestsByBackend option setup
+func WithMaxRequestsByBackend(maxRequestsByBackend int) Option {
 	return func(opt *Transport) {
 		opt.maxRequestsByBackend = maxRequestsByBackend
 	}
 }
 
-// MaxRetry option setup
-func MaxRetry(maxRetry int) Option {
+// WithMaxRetry option setup
+func WithMaxRetry(maxRetry int) Option {
 	return func(opt *Transport) {
 		opt.maxRetry = maxRetry
 	}
