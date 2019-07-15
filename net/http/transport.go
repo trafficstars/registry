@@ -4,15 +4,70 @@ import (
 	"bytes"
 	"io/ioutil"
 	"net/http"
+
+	regbalancer "github.com/trafficstars/registry/net/balancer"
 )
 
+// Option type
+type Option func(opt *Transport)
+
+// WithBalancer option setup
+func WithBalancer(balancer regbalancer.Balancer) Option {
+	return func(opt *Transport) {
+		opt.balancer = balancer
+	}
+}
+
+// WithMaxRequestsByBackend option setup
+func WithMaxRequestsByBackend(maxRequestsByBackend int) Option {
+	return func(opt *Transport) {
+		opt.maxRequestsByBackend = maxRequestsByBackend
+	}
+}
+
+// WithMaxRetry option setup
+func WithMaxRetry(maxRetry int) Option {
+	return func(opt *Transport) {
+		opt.maxRetry = maxRetry
+	}
+}
+
+// DefaultMaxRetry count
 const DefaultMaxRetry = 2
 
 // Transport wrapper of the HTTP transport object
 type Transport struct {
-	MaxRetry             int
-	MaxRequestsByBackend int
-	http.Transport
+	// max retry attempts before fail
+	maxRetry int
+
+	// Max concurrent requests by backend
+	maxRequestsByBackend int
+
+	// Balancer default for this RoundTripper
+	balancer regbalancer.Balancer
+
+	// Target HTTP transport
+	httpTransport *http.Transport
+}
+
+// WrapHTTPTransport by original transport object
+func WrapHTTPTransport(transport *http.Transport, options ...Option) *Transport {
+	wrapper := &Transport{httpTransport: transport}
+	for _, opt := range options {
+		opt(wrapper)
+	}
+	if wrapper.maxRetry <= 0 {
+		wrapper.maxRetry = DefaultMaxRetry
+	}
+	if wrapper.balancer == nil {
+		wrapper.balancer = regbalancer.Default()
+	}
+	return wrapper
+}
+
+// HTTPTransport returns wrapped transport object
+func (t *Transport) HTTPTransport() *http.Transport {
+	return t.httpTransport
 }
 
 // RoundTrip executes a single HTTP transaction, returning a Response for the provided Request.
@@ -20,28 +75,27 @@ func (t *Transport) RoundTrip(req *http.Request) (*http.Response, error) {
 	var (
 		err      error
 		body     []byte
-		backend  *backend
+		backend  *regbalancer.Backend
 		response *http.Response
 		service  = req.URL.Host
-		maxRetry = t.MaxRetry
 	)
-	if maxRetry == 0 {
-		maxRetry = DefaultMaxRetry
-	}
 	if req.Body != nil {
 		body, _ = ioutil.ReadAll(req.Body)
 	}
-	for i := 0; i <= maxRetry; i++ {
-		if backend, err = _balancer.next(service, t.MaxRequestsByBackend); err == nil {
-			backend.incConcurrentRequest(1)
-			defer backend.incConcurrentRequest(-1)
+	for i := 0; i <= t.maxRetry; i++ {
+		if backend, err = t.balancer.Next(service, t.maxRequestsByBackend); err == nil {
+			// Mark backend as performing a request
+			backend.IncConcurrentRequest(1)
+			defer backend.IncConcurrentRequest(-1)
 
-			req.URL.Host = backend.address
+			req.URL.Host = backend.Address()
 			req.Body = ioutil.NopCloser(bytes.NewBuffer(body))
-			if response, err = t.Transport.RoundTrip(req); err == nil {
+			if response, err = t.httpTransport.RoundTrip(req); err == nil {
 				return response, nil
 			}
-			backend.skip()
+
+			// Skip next tries of requests to this backend
+			backend.Skip()
 		}
 	}
 	return nil, err

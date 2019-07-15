@@ -12,3 +12,32 @@ Supports:
 * [X] Consul
 * [ ] Zookeeper
 * [ ] etcd
+
+## GRPC configuration
+
+```go
+import (
+	"google.golang.org/grpc/balancer"
+	"google.golang.org/grpc/resolver"
+
+	"github.com/trafficstars/registry"
+	registry_balancer "github.com/trafficstars/registry/net/balancer"
+	grpc_transport "github.com/trafficstars/registry/net/grpc"
+)
+
+func main() {
+  // Init registry & service descovery
+	registry, err := registry.New(registryDSN, registryArgs)
+	if err != nil {
+		log.Fatal(err)
+	}
+
+	// Init global network load-balancer
+	registry_balancer.Init(registry_balancer.RoundRobinStrategy, myRegistry.Discovery())
+
+  // Register balancer and connection resolver
+  balancer.Register(grpc_transport.NewBalancerBuilder("registry"))
+  resolver.Register(grpc_transport.NewResolveBuilder("registry", myRegistry.Discovery()))
+  resolver.SetDefaultScheme("registry")
+}
+```

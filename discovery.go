@@ -1,14 +1,14 @@
 package registry
 
-import (
-	"github.com/hashicorp/consul/api"
-
+import (	
 	"fmt"
 	"net"
 	"net/url"
 	"sort"
 	"strconv"
 	"strings"
+
+	"github.com/hashicorp/consul/api"
 )
 
 type discovery struct {
