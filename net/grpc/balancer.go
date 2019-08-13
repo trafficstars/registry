@@ -42,6 +42,7 @@ func (*registryPickerBuilder) Build(readySCs map[resolver.Address]balancer.SubCo
 			if meta.balancer != nil && picker.balancer == nil {
 				picker.balancer = meta.balancer
 				picker.serviceName = meta.serviceName
+				picker.servicePort = meta.servicePort
 				picker.maxRequestsByBackend = meta.maxRequestsByBackend
 			}
 			picker.subConns[addr.Addr] = sc
@@ -55,6 +56,7 @@ func (*registryPickerBuilder) Build(readySCs map[resolver.Address]balancer.SubCo
 type registryPicker struct {
 	next                 uint32
 	serviceName          string
+	servicePort          string
 	balancer             netbalancer.Balancer
 	subConns             map[string]balancer.SubConn
 	subConnList          []balancer.SubConn
@@ -64,7 +66,11 @@ type registryPicker struct {
 func (p *registryPicker) Pick(ctx context.Context, opts balancer.PickOptions) (balancer.SubConn, func(balancer.DoneInfo), error) {
 	if p.balancer != nil {
 		if backend, err := p.balancer.Next(p.serviceName, p.maxRequestsByBackend); err == nil {
-			if conn, ok := p.subConns[backend.Address()]; ok {
+			address := backend.Address()
+			if p.servicePort != "" {
+				address = backend.Hostname() + ":" + p.servicePort
+			}
+			if conn, ok := p.subConns[address]; ok {
 				backend.IncConcurrentRequest(1)
 				return conn, func(balancer.DoneInfo) { backend.IncConcurrentRequest(-1) }, nil
 			}

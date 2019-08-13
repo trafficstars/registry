@@ -54,13 +54,16 @@ type builder struct {
 //
 // gRPC dial calls Build synchronously, and fails if the returned error is not nil.
 func (b *builder) Build(target resolver.Target, cc resolver.ClientConn, opts resolver.BuildOption) (resolver.Resolver, error) {
-	host, port, err := parseTarget(target.Endpoint, defaultPort)
+	host, port, err := parseTarget(target.Endpoint, "")
 	if err != nil {
 		return nil, err
 	}
 
 	// If IP address then use simple resolver
 	if net.ParseIP(host) != nil {
+		if port == "" {
+			port = defaultPort
+		}
 		host, _ = formatIP(host)
 		addr := []resolver.Address{{Addr: host + ":" + port}}
 		i := &ipResolver{cc: cc, ip: addr}
@@ -71,6 +74,7 @@ func (b *builder) Build(target resolver.Target, cc resolver.ClientConn, opts res
 	ctx, cancel := context.WithCancel(context.Background())
 	resolv := &grpcResolver{
 		serviceName: host,
+		servicePort: port,
 		balancer:    b.balancer,
 		freq:        b.freq,
 		ctx:         ctx,

@@ -1,7 +1,9 @@
 language: go
 
 env:
-  - COVERALLS_TOKEN=kyqHtlWmu3vwrZpWW7AtWuc2DpUgsVjRZ
+  global:
+    - GO111MODULE=on
+    - COVERALLS_TOKEN=kyqHtlWmu3vwrZpWW7AtWuc2DpUgsVjRZ
 
 matrix:
   include:

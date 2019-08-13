@@ -13,6 +13,7 @@ const defaultRefreshInterval = time.Second * 5
 
 type grpcMetadata struct {
 	serviceName          string
+	servicePort          string
 	backend              *net_balancer.Backend
 	balancer             net_balancer.Balancer
 	maxRequestsByBackend int
@@ -21,6 +22,9 @@ type grpcMetadata struct {
 type grpcResolver struct {
 	// Service name in the discovery registry
 	serviceName string
+
+	// Service port number
+	servicePort string
 
 	// Maximal amount of requests by backend
 	maxRequestsByBackend int
@@ -65,9 +69,9 @@ func (r *grpcResolver) watcher() {
 
 func (r *grpcResolver) refreshConnection() {
 	var (
-		service  = r.serviceName
-		balancer = r.balancer
-		address  []resolver.Address
+		service     = r.serviceName
+		balancer    = r.balancer
+		addressList []resolver.Address
 	)
 	if balancer == nil {
 		balancer = net_balancer.Default()
@@ -75,10 +79,15 @@ func (r *grpcResolver) refreshConnection() {
 
 	backends := balancer.Backends(service)
 	for _, backend := range backends {
-		address = append(address, resolver.Address{
-			Addr: backend.Address(),
+		address := backend.Address()
+		if r.servicePort != "" {
+			address = backend.Hostname() + ":" + r.servicePort
+		}
+		addressList = append(addressList, resolver.Address{
+			Addr: address,
 			Metadata: &grpcMetadata{
 				serviceName:          service,
+				servicePort:          r.servicePort,
 				backend:              backend,
 				balancer:             balancer,
 				maxRequestsByBackend: r.maxRequestsByBackend,
@@ -86,7 +95,7 @@ func (r *grpcResolver) refreshConnection() {
 		})
 	}
 
-	r.cc.NewAddress(address)
+	r.cc.NewAddress(addressList)
 }
 
 var _ resolver.Resolver = (*grpcResolver)(nil)
