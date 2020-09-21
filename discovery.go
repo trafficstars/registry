@@ -42,22 +42,32 @@ func (d *discovery) Register(options ServiceOptions) error {
 		host = h
 		port = int(v)
 	}
-	return d.agent.ServiceRegister(&api.AgentServiceRegistration{
+	if options.Check.DeregisterAfter == "" {
+		options.Check.DeregisterAfter = "10m"
+	}
+	fmt.Println("Register", options.Name, options.ID)
+	agentService := api.AgentServiceRegistration{
 		ID:                options.ID,
 		Name:              options.Name,
 		Address:           host,
 		Port:              port,
 		Tags:              append(options.Tags, "DC="+d.datacenter),
 		EnableTagOverride: true,
-		Check: &api.AgentServiceCheck{
+		Check:             nil,
+	}
+	if options.Check.HTTP != "" || options.Check.TCP != "" {
+		agentService.Check = &api.AgentServiceCheck{
+			CheckID:                        options.ID,
+			Name:                           fmt.Sprintf("%s health status", options.Name),
 			Interval:                       options.Check.Interval,
 			Timeout:                        options.Check.Timeout,
 			HTTP:                           options.Check.HTTP,
 			TCP:                            options.Check.TCP,
-			TTL:                            defStr(options.Check.TTL, "10m"),
-			DeregisterCriticalServiceAfter: defStr(options.Check.DeregisterAfter, "10m"),
-		},
-	})
+			TTL:                            options.Check.TTL,
+			DeregisterCriticalServiceAfter: options.Check.DeregisterAfter,
+		}
+	}
+	return d.agent.ServiceRegister(&agentService)
 }
 
 func (d *discovery) Deregister(ident string) error {
@@ -172,11 +182,4 @@ func dc(tags []string) string {
 		}
 	}
 	return ""
-}
-
-func defStr(s, def string) string {
-	if s == "" {
-		return def
-	}
-	return s
 }
