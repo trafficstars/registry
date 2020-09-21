@@ -92,7 +92,7 @@ func main() {
 	{
 		log.Println("Init GRPC client")
 		ctx, _ := context.WithTimeout(context.Background(), 5*time.Second)
-		conn, err := grpc.DialContext(ctx, address + *flagGRPCServerListen, grpc.WithInsecure(), grpc.WithBalancerName("registry"))
+		conn, err := grpc.DialContext(ctx, address+*flagGRPCServerListen, grpc.WithInsecure(), grpc.WithBalancerName("registry"))
 		if err != nil {
 			log.Fatalf("did not connect: %v", err)
 		}

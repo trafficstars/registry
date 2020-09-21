@@ -8,6 +8,7 @@ import (
 	"time"
 
 	"github.com/trafficstars/registry"
+	"github.com/trafficstars/registry/net/balancer"
 	transport "github.com/trafficstars/registry/net/http"
 )
 
@@ -72,16 +73,16 @@ func main() {
 		http.ListenAndServe(":8899", &service{"srv3"})
 	}()
 
-	transport.Init(transport.RoundRobinStrategy, discovery)
+	balancer.Init(balancer.RoundRobinStrategy, discovery)
 
 	client := http.Client{
-		Transport: &transport.Transport{
-			Transport: http.Transport{
+		Transport: transport.WrapHTTPTransport(
+			&http.Transport{
 				MaxIdleConnsPerHost: 100,
 				IdleConnTimeout:     10 * time.Second,
 				// etc ...
 			},
-		},
+		),
 	}
 
 	tick := time.Tick(time.Second)

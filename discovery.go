@@ -1,6 +1,6 @@
 package registry
 
-import (	
+import (
 	"fmt"
 	"net"
 	"net/url"
@@ -52,9 +52,10 @@ func (d *discovery) Register(options ServiceOptions) error {
 		Check: &api.AgentServiceCheck{
 			Interval:                       options.Check.Interval,
 			Timeout:                        options.Check.Timeout,
-			DeregisterCriticalServiceAfter: "10m",
 			HTTP:                           options.Check.HTTP,
 			TCP:                            options.Check.TCP,
+			TTL:                            defStr(options.Check.TTL, "10m"),
+			DeregisterCriticalServiceAfter: defStr(options.Check.DeregisterAfter, "10m"),
 		},
 	})
 }
@@ -171,4 +172,11 @@ func dc(tags []string) string {
 		}
 	}
 	return ""
+}
+
+func defStr(s, def string) string {
+	if s == "" {
+		return def
+	}
+	return s
 }

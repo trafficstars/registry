@@ -10,8 +10,10 @@ import (
 
 var args []string
 
-const REGISTRY_PREFIX = "registry"
+// RegistryPrefix represents the name of the meta field of config
+const RegistryPrefix = "registry"
 
+// New registry contoller interface
 func New(dsn string, osArgs []string) (Registry, error) {
 	args = osArgs
 	url, err := url.Parse(dsn)

@@ -9,12 +9,14 @@ const (
 	SERVICE_STATUS_CRITICAL
 )
 
+// Registry functionality definition
 type Registry interface {
 	KV() KV
 	Bind(i sync.Locker) error
 	Discovery() Discovery
 }
 
+// KV is key value storage functionality definition
 type KV interface {
 	Get(string) (string, error)
 	Set(key, value string) error
@@ -22,12 +24,14 @@ type KV interface {
 	Delete(string) error
 }
 
+// Descovery service functionality definition
 type Discovery interface {
 	Lookup(*Filter) ([]Service, error)
 	Register(ServiceOptions) error
 	Deregister(string) error
 }
 
+// Service config definition
 type Service struct {
 	ID         string
 	Name       string
@@ -67,6 +71,7 @@ func (s *Service) test(filter *Filter) bool {
 	return true
 }
 
+// Filter search descovery definition
 type Filter struct {
 	ID         string
 	Status     int8
@@ -75,6 +80,7 @@ type Filter struct {
 	Datacenter string
 }
 
+// ServiceOptions defines proxy sevice object
 type ServiceOptions struct {
 	ID      string
 	Name    string
@@ -82,9 +88,13 @@ type ServiceOptions struct {
 	Tags    []string
 	Check   CheckOptions
 }
+
+// CheckOptions defines sevice healthcheck
 type CheckOptions struct {
-	Interval string
-	Timeout  string
-	HTTP     string
-	TCP      string
+	Interval        string
+	Timeout         string
+	HTTP            string
+	TCP             string
+	TTL             string
+	DeregisterAfter string
 }

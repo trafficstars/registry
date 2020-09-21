@@ -9,7 +9,7 @@ type kv struct {
 }
 
 func (kv *kv) Get(key string) (string, error) {
-	v, _, err := kv.client.Get(REGISTRY_PREFIX+"/"+key, nil)
+	v, _, err := kv.client.Get(RegistryPrefix+"/"+key, nil)
 	if err != nil {
 		return "", err
 	}
@@ -20,7 +20,7 @@ func (kv *kv) Get(key string) (string, error) {
 }
 
 func (kv *kv) Set(key, value string) error {
-	if _, err := kv.client.Put(&api.KVPair{Key: REGISTRY_PREFIX + "/" + key, Value: []byte(value)}, nil); err != nil {
+	if _, err := kv.client.Put(&api.KVPair{Key: RegistryPrefix + "/" + key, Value: []byte(value)}, nil); err != nil {
 		return err
 	}
 	return nil
@@ -39,7 +39,7 @@ func (kv *kv) List(prefix string) (map[string]string, error) {
 }
 
 func (kv *kv) Delete(key string) error {
-	if _, err := kv.client.Delete(REGISTRY_PREFIX+"/"+key, nil); err != nil {
+	if _, err := kv.client.Delete(RegistryPrefix+"/"+key, nil); err != nil {
 		return err
 	}
 	return nil

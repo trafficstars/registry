@@ -43,9 +43,7 @@ type grpcResolver struct {
 }
 
 // ResolveNow invoke an immediate resolution of the target that this dnsResolver watches.
-func (r *grpcResolver) ResolveNow(opt resolver.ResolveNowOption) {
-	r.refreshConnection()
-}
+func (r *grpcResolver) ResolveNow(opt resolver.ResolveNowOption) {}
 
 // Close closes the dnsResolver.
 func (r *grpcResolver) Close() {
