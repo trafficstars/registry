@@ -77,14 +77,14 @@ func (r *registry) supervisor() {
 	for {
 		select {
 		case <-refresh:
-			r.refresh()
+			r.Refresh()
 		case <-r.bindChan:
-			r.refresh()
+			r.Refresh()
 		}
 	}
 }
 
-func (r *registry) refresh() {
+func (r *registry) Refresh() {
 	var (
 		kv   = r.KV()
 		keys []string
