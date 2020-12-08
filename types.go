@@ -14,6 +14,7 @@ type Registry interface {
 	KV() KV
 	Bind(i sync.Locker) error
 	Discovery() Discovery
+	Refresh()
 }
 
 // KV is key value storage functionality definition
