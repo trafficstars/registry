@@ -11,7 +11,7 @@ type ipResolver struct {
 }
 
 // ResolveNow resend the address it stores, no resolution is needed.
-func (i *ipResolver) ResolveNow(opt resolver.ResolveNowOption) {
+func (i *ipResolver) ResolveNow(opt resolver.ResolveNowOptions) {
 	i.cc.NewAddress(i.ip)
 }
 

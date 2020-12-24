@@ -1,32 +1,30 @@
 package grpc
 
 import (
-	"context"
 	"sync/atomic"
 
 	"google.golang.org/grpc/balancer"
 	"google.golang.org/grpc/balancer/base"
 	"google.golang.org/grpc/grpclog"
-	"google.golang.org/grpc/resolver"
 
 	netbalancer "github.com/trafficstars/registry/net/balancer"
 )
 
 // NewBalancerBuilder creates a new registry balancer builder.
 func NewBalancerBuilder(name string) balancer.Builder {
-	return base.NewBalancerBuilderWithConfig(name, &registryPickerBuilder{}, base.Config{HealthCheck: true})
+	return base.NewBalancerBuilder(name, &registryPickerBuilder{}, base.Config{HealthCheck: true})
 }
 
 type registryPickerBuilder struct{}
 
-func (*registryPickerBuilder) Build(readySCs map[resolver.Address]balancer.SubConn) balancer.Picker {
-	grpclog.Infof("registryPicker: newPicker called with readySCs: %v", readySCs)
-	if len(readySCs) == 0 {
+func (*registryPickerBuilder) Build(info base.PickerBuildInfo) balancer.Picker {
+	grpclog.Infof("registryPicker: newPicker called with readySCs: %v", info.ReadySCs)
+	if len(info.ReadySCs) == 0 {
 		return base.NewErrPicker(balancer.ErrNoSubConnAvailable)
 	}
 
-	if len(readySCs) == 1 {
-		for _, sc := range readySCs {
+	if len(info.ReadySCs) == 1 {
+		for sc := range info.ReadySCs {
 			return &simplePicker{subConn: sc}
 		}
 	}
@@ -35,8 +33,8 @@ func (*registryPickerBuilder) Build(readySCs map[resolver.Address]balancer.SubCo
 		subConns: map[string]balancer.SubConn{},
 	}
 
-	for addr, sc := range readySCs {
-		switch meta := addr.Metadata.(type) {
+	for sc, scInfo := range info.ReadySCs {
+		switch meta := scInfo.Address.Metadata.(type) {
 		case nil:
 		case *grpcMetadata:
 			if meta.balancer != nil && picker.balancer == nil {
@@ -45,7 +43,7 @@ func (*registryPickerBuilder) Build(readySCs map[resolver.Address]balancer.SubCo
 				picker.servicePort = meta.servicePort
 				picker.maxRequestsByBackend = meta.maxRequestsByBackend
 			}
-			picker.subConns[addr.Addr] = sc
+			picker.subConns[scInfo.Address.Addr] = sc
 		}
 		picker.subConnList = append(picker.subConnList, sc)
 	}
@@ -63,7 +61,7 @@ type registryPicker struct {
 	maxRequestsByBackend int
 }
 
-func (p *registryPicker) Pick(ctx context.Context, opts balancer.PickOptions) (balancer.SubConn, func(balancer.DoneInfo), error) {
+func (p *registryPicker) Pick(opts balancer.PickInfo) (balancer.PickResult, error) {
 	if p.balancer != nil {
 		if backend, err := p.balancer.Next(p.serviceName, p.maxRequestsByBackend); err == nil {
 			address := backend.Address()
@@ -72,19 +70,28 @@ func (p *registryPicker) Pick(ctx context.Context, opts balancer.PickOptions) (b
 			}
 			if conn, ok := p.subConns[address]; ok {
 				backend.IncConcurrentRequest(1)
-				return conn, func(balancer.DoneInfo) { backend.IncConcurrentRequest(-1) }, nil
+				return balancer.PickResult{
+					SubConn: conn,
+					Done:    func(balancer.DoneInfo) { backend.IncConcurrentRequest(-1) },
+				}, nil
 			}
 		}
 	}
 	next := atomic.AddUint32(&p.next, 1) % uint32(len(p.subConnList))
 	sc := p.subConnList[next]
-	return sc, nil, nil
+	return balancer.PickResult{
+		SubConn: sc,
+		Done:    nil,
+	}, nil
 }
 
 type simplePicker struct {
 	subConn balancer.SubConn
 }
 
-func (p *simplePicker) Pick(ctx context.Context, opts balancer.PickOptions) (balancer.SubConn, func(balancer.DoneInfo), error) {
-	return p.subConn, nil, nil
+func (p *simplePicker) Pick(opts balancer.PickInfo) (balancer.PickResult, error) {
+	return balancer.PickResult{
+		SubConn: p.subConn,
+		Done:    nil,
+	}, nil
 }
