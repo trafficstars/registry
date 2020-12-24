@@ -12,7 +12,7 @@ matrix:
   - go: "1.14.x"
 
 install:
-  - travis_retry GO111MODULE=off go get -v github.com/mattn/goveralls/...
+  - GO111MODULE=off go get -v github.com/mattn/goveralls/...
 
 script:
   - go test -v -covermode=count -coverprofile=coverage.out
