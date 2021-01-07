@@ -133,7 +133,7 @@ func (d *discovery) lookup(filter *Filter) ([]Service, error) {
 				srv = Service{
 					ID:         item.ServiceID,
 					Name:       item.ServiceName,
-					Datacenter: dc(item.ServiceTags),
+					Datacenter: item.Datacenter,
 					Address:    item.ServiceAddress,
 					Port:       item.ServicePort,
 					Tags:       item.ServiceTags,
@@ -173,13 +173,4 @@ func (d *discovery) lookup(filter *Filter) ([]Service, error) {
 		}
 	}
 	return services, nil
-}
-
-func dc(tags []string) string {
-	for _, tag := range tags {
-		if strings.HasPrefix(tag, "DC=") {
-			return strings.TrimPrefix(tag, "DC=")
-		}
-	}
-	return ""
 }
