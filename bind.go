@@ -14,9 +14,7 @@ import (
 var errInvalidValue = errors.New("Invalid value")
 
 var (
-	tags            = []string{"default", "env", "flag", "registry"}
-	typeStringSlice = reflect.TypeOf([]string{})
-	typeIntSlice    = reflect.TypeOf([]int{})
+	tags = []string{"default", "env", "flag", "registry"}
 )
 
 type config struct {
@@ -139,22 +137,23 @@ func defaultByKind(tp reflect.Type, rawValue string) (defaultValue interface{}, 
 	case reflect.Bool:
 		defaultValue, err = strconv.ParseBool(rawValue)
 	case reflect.Slice:
-		switch tp {
-		case typeStringSlice:
-			defaultValue = strings.Split(rawValue, ",")
-		case typeIntSlice:
-			var (
-				arr    []int
-				arrVal int64
-			)
-			for _, v := range strings.Split(rawValue, ",") {
-				if arrVal, err = strconv.ParseInt(v, 10, 64); err != nil {
+		values := strings.Split(rawValue, ",")
+		rslice := reflect.MakeSlice(tp, len(values), cap(values))
+		if len(values) > 0 {
+			fieldType := rslice.Index(0).Type()
+			for i, v := range values {
+				r, err := defaultByKind(fieldType, v)
+				if err != nil {
 					break
 				}
-				arr = append(arr, int(arrVal))
+				rval := reflect.ValueOf(r)
+				if !rval.IsValid() {
+					continue
+				}
+				rslice.Index(i).Set(rval)
 			}
-			defaultValue = arr
 		}
+		defaultValue = rslice.Interface()
 	}
 	return
 }

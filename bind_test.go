@@ -18,23 +18,27 @@ type TestUser struct {
 
 type testConfig struct {
 	TestUser
-	Int         int      `default:"100"`
-	Int8        int8     `default:"100"`
-	Int16       int16    `default:"100"`
-	Int32       int32    `default:"100"`
-	Int64       int64    `default:"100"`
-	Uint        uint     `default:"100"`
-	Uint8       uint8    `default:"100"`
-	Uint16      uint16   `default:"100"`
-	Uint32      uint32   `default:"100"`
-	Uint64      uint64   `default:"100"`
-	String      string   `default:"StringVar" env:"STRING_VAR" flag:"string_var" registry:"string.var"`
-	StringSlice []string `default:"a,b,c"`
-	Float32     float32  `default:"36.6"`
-	FlagString  string   `default:"-" flag:"string"`
-	FlagInt     int      `default:"-" flag:"int"`
-	Bool        bool     `default:"true"`
-	Anonymous   struct {
+	Int          int       `default:"100"`
+	Int8         int8      `default:"100"`
+	Int16        int16     `default:"100"`
+	Int32        int32     `default:"100"`
+	Int64        int64     `default:"100"`
+	Uint         uint      `default:"100"`
+	Uint8        uint8     `default:"100"`
+	Uint16       uint16    `default:"100"`
+	Uint32       uint32    `default:"100"`
+	Uint64       uint64    `default:"100"`
+	String       string    `default:"StringVar" env:"STRING_VAR" flag:"string_var" registry:"string.var"`
+	StringSlice  []string  `default:"a,b,c"`
+	IntSlice     []int     `default:"1,2,3"`
+	Int64Slice   []int64   `default:"1,2,3"`
+	BoolSlice    []bool    `default:"true,false"`
+	Float64Slice []float64 `default:"1.1,1.2"`
+	Float32      float32   `default:"36.6"`
+	FlagString   string    `default:"-" flag:"string"`
+	FlagInt      int       `default:"-" flag:"int"`
+	Bool         bool      `default:"true"`
+	Anonymous    struct {
 		String string `default:"anonymous value"`
 	}
 	unexported struct {
@@ -72,6 +76,10 @@ func Test_Bind(t *testing.T) {
 		assert.Equal(t, uint64(100), config.Uint64)
 		assert.Equal(t, "StringVar", config.String)
 		assert.Equal(t, []string{"a", "b", "c"}, config.StringSlice)
+		assert.Equal(t, []int{1, 2, 3}, config.IntSlice)
+		assert.Equal(t, []int64{1, 2, 3}, config.Int64Slice)
+		assert.Equal(t, []bool{true, false}, config.BoolSlice)
+		assert.Equal(t, []float64{1.1, 1.2}, config.Float64Slice)
 		assert.Equal(t, float32(36.6), config.Float32)
 		assert.Equal(t, "FlagString", config.FlagString)
 		assert.Equal(t, int(1000), config.FlagInt)
