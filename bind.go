@@ -148,7 +148,7 @@ func defaultByKind(tp reflect.Type, rawValue string) (defaultValue interface{}, 
 				}
 				rval := reflect.ValueOf(r)
 				if !rval.IsValid() {
-					continue
+					break
 				}
 				rslice.Index(i).Set(rval)
 			}
