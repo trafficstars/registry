@@ -54,7 +54,7 @@ type builder struct {
 //
 // gRPC dial calls Build synchronously, and fails if the returned error is not nil.
 func (b *builder) Build(target resolver.Target, cc resolver.ClientConn, opts resolver.BuildOptions) (resolver.Resolver, error) {
-	host, port, err := parseTarget(target.Endpoint, "")
+	host, port, err := parseTarget(target.Endpoint(), "")
 	if err != nil {
 		return nil, err
 	}
